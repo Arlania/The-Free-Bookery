@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blog | The Free Book Nook</title>
+    <link rel="icon" type="image/png" href="assets/book-logo.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav-left" aria-label="Primary navigation">
+        <a href="blog.html" aria-current="page">Blog</a>
+        <a href="index.html#about">About Us</a>
+      </nav>
+      <a class="brand" href="index.html" aria-label="The Free Book Nook home">
+        <img src="assets/book-logo.png" alt="" class="brand-logo" />
+        <span>The Free Book Nook</span>
+      </a>
+      <nav class="nav-right" aria-label="Account navigation">
+        <a href="index.html#donate">Donate</a>
+        <a href="index.html#signin" class="login-link">Login/Sign up</a>
+        <div class="user-menu" hidden>
+          <button class="user-button" type="button" aria-label="User account menu" aria-haspopup="true" aria-expanded="false">
+            <span class="user-icon" aria-hidden="true"></span>
+            <span class="user-name">TheFreeBookNook</span>
+          </button>
+          <div class="account-dropdown" role="menu">
+            <a href="#starred" role="menuitem">Starred</a>
+            <a href="collections.html" role="menuitem">Collections</a>
+            <a href="#creator-access" role="menuitem">Creator Access</a>
+            <a href="contact.html" role="menuitem">Contact Us</a>
+            <button class="logout-button" type="button" role="menuitem">Sign Out</button>
+          </div>
+        </div>
+      </nav>
+    </header>
+    <main class="blog-page">
+      <section class="blog-column author-blogs" aria-labelledby="author-blogs-title">
+        <div class="blog-section-heading">
+          <span class="blog-eyebrow">From our authors</span>
+          <h1 id="author-blogs-title">Blog</h1>
+        </div>
+        <div class="blog-column-content">
+          <article class="blog-post-card">
+            <div class="blog-post-avatar" aria-hidden="true">EM</div>
+            <div class="blog-post-body">
+              <header class="blog-post-meta">
+                <strong>Elena Marlowe</strong>
+                <time datetime="2026-07-28">Jul 28</time>
+              </header>
+              <div class="blog-post-text">
+                <p>
+                  A small reminder from an author: you do not have to finish
+                  every book quickly. Some stories are better when you let them
+                  follow you around for a while. What are you reading slowly
+                  right now?
+                </p>
+              </div>
+              <footer class="blog-post-actions" aria-label="Post actions">
+                <button type="button" aria-label="Upvote this post">
+                  <span class="blog-action-icon" aria-hidden="true">&#9650;</span>
+                  <span>84</span>
+                </button>
+                <button type="button" aria-label="Downvote this post">
+                  <span class="blog-action-icon" aria-hidden="true">&#9660;</span>
+                  <span>3</span>
+                </button>
+              </footer>
+            </div>
+          </article>
+
+          <article class="blog-post-card">
+            <div class="blog-post-avatar" aria-hidden="true">JL</div>
+            <div class="blog-post-body">
+              <header class="blog-post-meta">
+                <strong>Jonah Lee</strong>
+                <time datetime="2026-07-25">Jul 25</time>
+              </header>
+              <div class="blog-post-text">
+                <p>
+                  I used to think every writing day needed to end with a perfect
+                  chapter. If the sentences felt awkward or the plot refused to
+                  move, I counted the whole day as a failure. It took me years to
+                  understand that most books are built from quieter days: fixing
+                  one conversation, learning something unexpected about a
+                  character, or deleting a page that was taking the story in the
+                  wrong direction.
+                </p>
+                <p>
+                  Now I keep a small notebook beside my desk and write down one
+                  thing the story taught me before I stop working. Sometimes it
+                  is only a new question. Sometimes it is a sentence I want to
+                  remember. Those notes have become a record of the book growing,
+                  even when the word count does not. Progress is not always
+                  visible, but that does not make it less real.
+                </p>
+              </div>
+              <footer class="blog-post-actions" aria-label="Post actions">
+                <button type="button" aria-label="Upvote this post">
+                  <span class="blog-action-icon" aria-hidden="true">&#9650;</span>
+                  <span>126</span>
+                </button>
+                <button type="button" aria-label="Downvote this post">
+                  <span class="blog-action-icon" aria-hidden="true">&#9660;</span>
+                  <span>5</span>
+                </button>
+              </footer>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="blog-column newsletters" aria-labelledby="newsletters-title">
+        <div class="blog-section-heading">
+          <span class="blog-eyebrow">From the nook</span>
+          <h2 id="newsletters-title">Newsletters</h2>
+        </div>
+        <div class="blog-column-content" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </section>
+    </main>
+    <script src="script.js"></script>
+  </body>
+</html>
