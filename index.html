@@ -10,7 +10,7 @@
   <body>
     <header class="site-header">
       <nav class="nav-left" aria-label="Primary navigation">
-        <a href="search.html">Search Books</a>
+        <a href="blog.html">Blog</a>
         <a href="#about">About Us</a>
       </nav>
 
@@ -50,6 +50,33 @@
 
     <main id="home">
       <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-search">
+          <form class="home-search-form" action="search.html" method="get">
+            <div class="home-search-row">
+              <input
+                id="home-book-search"
+                name="query"
+                type="search"
+                aria-label="Search by title, author, ISBN, or DOI"
+                placeholder="Search by title, author, ISBN, or DOI"
+                autocomplete="off"
+                aria-controls="home-recent-searches"
+                aria-expanded="false"
+                required
+              />
+              <button type="submit" aria-label="Search books">Search</button>
+            </div>
+            <div
+              class="home-recent-searches"
+              id="home-recent-searches"
+              aria-label="Recent searches"
+              hidden
+            >
+              <p>Recent searches</p>
+              <div class="home-recent-search-list"></div>
+            </div>
+          </form>
+        </div>
         <div class="hero-copy">
           <h1 id="hero-title">
             <span>You read online for free</span>

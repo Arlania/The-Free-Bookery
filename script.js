@@ -53,6 +53,13 @@ const searchStatus = document.querySelector(".search-status");
 const searchResultTabs = document.querySelectorAll(".search-result-tab");
 const recentSearchList = document.querySelector(".recent-search-list");
 const recentSearchesEmpty = document.querySelector(".recent-searches-empty");
+const homeSearchForm = document.querySelector(".home-search-form");
+const homeSearchInput = document.querySelector("#home-book-search");
+const homeRecentSearches = document.querySelector(".home-recent-searches");
+const homeRecentSearchList = document.querySelector(
+  ".home-recent-search-list"
+);
+const blogPostTexts = document.querySelectorAll(".blog-post-text");
 const saveBookModal = document.querySelector("#save-book-modal");
 const closeSaveBookModal = document.querySelector("[data-save-book-close]");
 const saveBookForm = document.querySelector(".save-book-form");
@@ -179,6 +186,73 @@ function renderRecentSearches() {
 
     chip.append(searchButton, deleteButton);
     recentSearchList.append(chip);
+  });
+}
+
+function closeHomeRecentSearches() {
+  if (!homeRecentSearches || !homeSearchInput) return;
+  homeRecentSearches.hidden = true;
+  homeSearchInput.setAttribute("aria-expanded", "false");
+}
+
+function renderHomeRecentSearches() {
+  if (!homeRecentSearchList || !homeRecentSearches || !homeSearchInput) return;
+
+  const searches = getRecentSearches();
+  homeRecentSearchList.replaceChildren();
+  homeRecentSearches.hidden = searches.length === 0;
+  homeSearchInput.setAttribute("aria-expanded", String(searches.length > 0));
+
+  searches.forEach((query) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = query;
+    button.addEventListener("click", () => {
+      homeSearchInput.value = query;
+      saveRecentSearch(query);
+      window.location.href = `search.html?query=${encodeURIComponent(query)}`;
+    });
+    homeRecentSearchList.append(button);
+  });
+}
+
+homeSearchInput?.addEventListener("focus", renderHomeRecentSearches);
+homeSearchInput?.addEventListener("click", renderHomeRecentSearches);
+
+homeSearchForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const query = homeSearchInput.value.trim();
+  if (!query) return;
+  saveRecentSearch(query);
+  window.location.href = `search.html?query=${encodeURIComponent(query)}`;
+});
+
+document.addEventListener("click", (event) => {
+  if (homeSearchForm && !homeSearchForm.contains(event.target)) {
+    closeHomeRecentSearches();
+  }
+});
+
+function setupBlogPostPreviews() {
+  blogPostTexts.forEach((postText, index) => {
+    if (postText.scrollHeight <= postText.clientHeight + 1) return;
+
+    const toggle = document.createElement("button");
+    const textId = `blog-post-text-${index + 1}`;
+    postText.id = textId;
+    toggle.className = "blog-post-toggle";
+    toggle.type = "button";
+    toggle.textContent = "Show more";
+    toggle.setAttribute("aria-controls", textId);
+    toggle.setAttribute("aria-expanded", "false");
+
+    toggle.addEventListener("click", () => {
+      const expanded = postText.classList.toggle("is-expanded");
+      toggle.textContent = expanded ? "Show less" : "Show more";
+      toggle.setAttribute("aria-expanded", String(expanded));
+    });
+
+    postText.insertAdjacentElement("afterend", toggle);
   });
 }
 let collectionModalMode = "create";
@@ -1068,6 +1142,14 @@ renderCollections();
 renderBookshelf();
 renderRecentSearches();
 setupReadingRequiredPrompt();
+setupBlogPostPreviews();
+
+const initialSearchQuery = new URLSearchParams(window.location.search).get(
+  "query"
+);
+if (bookSearchInput && initialSearchQuery) {
+  runSearch(initialSearchQuery);
+}
 
 if (
   signInModal &&
