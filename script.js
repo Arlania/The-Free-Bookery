@@ -71,8 +71,8 @@ const newCollectionInput = document.querySelector(
 );
 const saveBookMessage = document.querySelector(".save-book-message");
 const demoAccount = {
-  email: "TheFreeBookNook",
-  password: "TheFreeBookNook",
+  email: "Free Bookery",
+  password: "Free Bookery",
 };
 const collectionsStorageKey = "freeBookNookCollections";
 const recentSearchesStorageKey = "freeBookNookRecentSearches";
@@ -771,7 +771,7 @@ signInForm?.addEventListener("submit", (event) => {
 
   if (signInMessage) {
     signInMessage.textContent =
-      "Use TheFreeBookNook for both email and password.";
+      "Use Free Bookery for both email and password.";
   }
 });
 

@@ -115,7 +115,7 @@ async function loadBook() {
     const book = await response.json();
     title.textContent = book.title;
     author.textContent = `by ${book.author}`;
-    document.title = `${book.title} | The Free Book Nook`;
+    document.title = `${book.title} | Free Bookery`;
 
     if (!book.has_file) {
       message.textContent = "The digital copy of this book is not available.";

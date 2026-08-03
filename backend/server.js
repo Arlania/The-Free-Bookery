@@ -134,5 +134,5 @@ app.get("/api/books/:id/read", (request, response) => {
 });
 
 app.listen(port, () => {
-  console.log(`The Free Book Nook is running at http://localhost:${port}`);
+  console.log(`Free Bookery is running at http://localhost:${port}`);
 });
