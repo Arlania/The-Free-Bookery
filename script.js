@@ -60,6 +60,10 @@ const homeRecentSearchList = document.querySelector(
   ".home-recent-search-list"
 );
 const blogPostTexts = document.querySelectorAll(".blog-post-text");
+const blogFilterButton = document.querySelector(".blog-filter-button");
+const blogFilterMenu = document.querySelector(".blog-filter-menu");
+const blogFilterOptions = document.querySelectorAll("[data-blog-filter]");
+const blogPostCards = document.querySelectorAll("[data-blog-category]");
 const saveBookModal = document.querySelector("#save-book-modal");
 const closeSaveBookModal = document.querySelector("[data-save-book-close]");
 const saveBookForm = document.querySelector(".save-book-form");
@@ -218,6 +222,32 @@ function renderHomeRecentSearches() {
 
 homeSearchInput?.addEventListener("focus", renderHomeRecentSearches);
 homeSearchInput?.addEventListener("click", renderHomeRecentSearches);
+
+blogFilterButton?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  const isOpen = blogFilterButton.getAttribute("aria-expanded") === "true";
+  blogFilterButton.setAttribute("aria-expanded", String(!isOpen));
+  blogFilterMenu.hidden = isOpen;
+});
+
+blogFilterMenu?.addEventListener("click", (event) => {
+  const option = event.target.closest("[data-blog-filter]");
+  if (!option) return;
+  const selectedCategory = option.dataset.blogFilter;
+
+  blogFilterOptions.forEach((item) => {
+    item.setAttribute("aria-pressed", String(item === option));
+  });
+
+  blogPostCards.forEach((card) => {
+    card.hidden =
+      selectedCategory !== "all" &&
+      card.dataset.blogCategory !== selectedCategory;
+  });
+
+  blogFilterButton.setAttribute("aria-expanded", "false");
+  blogFilterMenu.hidden = true;
+});
 
 homeSearchForm?.addEventListener("submit", (event) => {
   event.preventDefault();
