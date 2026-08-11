@@ -38,16 +38,49 @@
     <main class="blog-page">
       <section class="blog-column author-blogs" aria-labelledby="author-blogs-title">
         <div class="blog-section-heading">
-          <span class="blog-eyebrow">From our authors</span>
-          <h1 id="author-blogs-title">Blog</h1>
+          <div class="blog-title-row">
+            <h1 id="author-blogs-title">Blog</h1>
+            <div class="blog-filter">
+              <button
+                class="blog-filter-button"
+                type="button"
+                aria-label="Filter blog posts by category"
+                aria-expanded="false"
+                aria-controls="blog-filter-menu"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 6h16M7 12h10M10 18h4" />
+                </svg>
+              </button>
+              <div class="blog-filter-menu" id="blog-filter-menu" hidden>
+                <button type="button" data-blog-filter="all" aria-pressed="true">All categories</button>
+                <button type="button" data-blog-filter="Author Notes" aria-pressed="false">Author Notes</button>
+                <button type="button" data-blog-filter="Book Recommendations" aria-pressed="false">Book Recommendations</button>
+                <button type="button" data-blog-filter="Reading Life" aria-pressed="false">Reading Life</button>
+                <button type="button" data-blog-filter="Writing Advice" aria-pressed="false">Writing Advice</button>
+                <button type="button" data-blog-filter="Behind the Book" aria-pressed="false">Behind the Book</button>
+                <button type="button" data-blog-filter="New Releases" aria-pressed="false">New Releases</button>
+                <button type="button" data-blog-filter="Creator Spotlight" aria-pressed="false">Creator Spotlight</button>
+                <button type="button" data-blog-filter="Community Stories" aria-pressed="false">Community Stories</button>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="blog-column-content">
-          <article class="blog-post-card">
-            <div class="blog-post-avatar" aria-hidden="true">EM</div>
+          <article class="blog-post-card" data-blog-category="Author Notes">
+            <div class="blog-post-profile">
+              <div class="blog-post-avatar" aria-hidden="true">EM</div>
+              <strong class="blog-post-author">Elena Marlowe</strong>
+            </div>
             <div class="blog-post-body">
-              <header class="blog-post-meta">
-                <strong>Elena Marlowe</strong>
-                <time datetime="2026-07-28">Jul 28</time>
+              <header class="blog-post-header">
+                <div>
+                  <h2>Reading Slowly Is Still Reading</h2>
+                  <div class="blog-post-meta">
+                    <time datetime="2026-07-28">Jul 28</time>
+                  </div>
+                </div>
+                <span class="blog-post-category">Author Notes</span>
               </header>
               <div class="blog-post-text">
                 <p>
@@ -70,12 +103,20 @@
             </div>
           </article>
 
-          <article class="blog-post-card">
-            <div class="blog-post-avatar" aria-hidden="true">JL</div>
+          <article class="blog-post-card" data-blog-category="Writing Advice">
+            <div class="blog-post-profile">
+              <div class="blog-post-avatar" aria-hidden="true">JL</div>
+              <strong class="blog-post-author">Jonah Lee</strong>
+            </div>
             <div class="blog-post-body">
-              <header class="blog-post-meta">
-                <strong>Jonah Lee</strong>
-                <time datetime="2026-07-25">Jul 25</time>
+              <header class="blog-post-header">
+                <div>
+                  <h2>The Quiet Work of Writing</h2>
+                  <div class="blog-post-meta">
+                    <time datetime="2026-07-25">Jul 25</time>
+                  </div>
+                </div>
+                <span class="blog-post-category">Writing Advice</span>
               </header>
               <div class="blog-post-text">
                 <p>
@@ -113,7 +154,6 @@
 
       <section class="blog-column newsletters" aria-labelledby="newsletters-title">
         <div class="blog-section-heading">
-          <span class="blog-eyebrow">From the nook</span>
           <h2 id="newsletters-title">Newsletters</h2>
         </div>
         <div class="blog-column-content" aria-hidden="true">
@@ -123,6 +163,6 @@
         </div>
       </section>
     </main>
-    <script src="script.js"></script>
+    <script src="script.js?v=3"></script>
   </body>
 </html>
