@@ -43,6 +43,9 @@ const deleteCollectionWarning = document.querySelector(
 );
 const contactForm = document.querySelector(".contact-form");
 const contactFormMessage = document.querySelector(".contact-form-message");
+const donorTypeOptions = document.querySelectorAll('[name="donor-type"]');
+const donorTypeHeading = document.querySelector("[data-donor-heading]");
+const donorTypeDescription = document.querySelector("[data-donor-description]");
 const bookSearchForm = document.querySelector(".book-search-form");
 const bookSearchInput = document.querySelector("#book-search");
 const searchPage = document.querySelector(".search-page");
@@ -1077,8 +1080,22 @@ contactForm?.addEventListener("submit", (event) => {
 
   if (contactFormMessage) {
     contactFormMessage.textContent =
-      "Thank you! Your message is ready to be connected to our support inbox.";
+      "Thank you! Your form was submitted, but online delivery is not connected yet. For urgent help, email info@freebookery.org directly.";
   }
+});
+
+donorTypeOptions.forEach((option) => {
+  option.addEventListener("change", () => {
+    if (!option.checked || !donorTypeHeading || !donorTypeDescription) return;
+
+    const isCorporate = option.value === "corporate";
+    donorTypeHeading.textContent = isCorporate
+      ? "Give as a corporate organization"
+      : "Give as an individual";
+    donorTypeDescription.textContent = isCorporate
+      ? "Use the secure HCB form for your organization’s contribution. For employer matching or sponsorship arrangements, contact info@freebookery.org."
+      : "Make a one-time or recurring contribution through the secure HCB donation form.";
+  });
 });
 
 saveBookCollection?.addEventListener("change", () => {
