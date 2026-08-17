@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Collection | Free Bookery</title>
+    <title>Donate | Free Bookery</title>
     <link rel="icon" type="image/png" href="assets/book-logo.png" />
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -20,12 +20,8 @@
       </a>
 
       <nav class="nav-right" aria-label="Account navigation">
-        <a href="donate.html">Donate</a>
-        <a
-          href="index.html#signin"
-          data-modal-open="signin-modal"
-          class="login-link"
-        >
+        <a href="donate.html" aria-current="page">Donate</a>
+        <a href="#signin" data-modal-open="signin-modal" class="login-link">
           Login/Sign up
         </a>
         <div class="user-menu" hidden>
@@ -52,16 +48,64 @@
       </nav>
     </header>
 
-    <main class="collections-page collection-detail-page">
-      <section class="collections-hero collection-detail-hero">
-        <a class="back-link" href="collections.html">Back to collections</a>
-        <h1 data-collection-title title="Double-click to rename">Collection</h1>
-        <p class="collection-title-hint">Double-click to rename</p>
-      </section>
+    <main class="donation-page">
+      <section class="donation-page-layout" aria-labelledby="donate-title">
+        <div class="donation-page-copy">
+          <p class="donation-section-label">Support our library</p>
+          <h1 id="donate-title">Donate to Free Bookery</h1>
+          <p class="donation-lead">
+            Help us make books more accessible while supporting the creators
+            who make reading possible.
+          </p>
 
-      <section class="bookshelf-section" aria-labelledby="bookshelf-title">
-        <h2 id="bookshelf-title">Saved books</h2>
-        <div class="bookshelf" data-bookshelf></div>
+          <fieldset class="donor-type-picker">
+            <legend>How would you like to donate?</legend>
+            <label>
+              <input type="radio" name="donor-type" value="individual" checked />
+              <span>Individual</span>
+            </label>
+            <label>
+              <input type="radio" name="donor-type" value="corporate" />
+              <span>Corporate organization</span>
+            </label>
+          </fieldset>
+
+          <div class="donor-type-note" aria-live="polite">
+            <h2 data-donor-heading>Give as an individual</h2>
+            <p data-donor-description>
+              Make a one-time or recurring contribution through the secure HCB
+              donation form.
+            </p>
+          </div>
+
+          <ul class="donation-benefits">
+            <li>Help obtain licenses for more digital books.</li>
+            <li>Keep reading free and accessible to more people.</li>
+            <li>Support fair compensation for authors and publishers.</li>
+          </ul>
+        </div>
+
+        <div class="donation-embed-panel">
+          <div class="donation-embed-heading">
+            <p>Secure donation</p>
+            <span>Processed by HCB</span>
+          </div>
+          <iframe
+            class="donation-embed"
+            src="https://hcb.hackclub.com/donations/start/free-bookery"
+            title="Donate securely to Free Bookery through HCB"
+            loading="eager"
+            allow="payment"
+          ></iframe>
+          <p class="donation-embed-fallback">
+            If the secure form does not load,
+            <a
+              href="https://hcb.hackclub.com/donations/start/free-bookery"
+              target="_blank"
+              rel="noopener noreferrer"
+            >open it directly on HCB</a>.
+          </p>
+        </div>
       </section>
     </main>
 
@@ -118,38 +162,36 @@
     </footer>
 
     <div
-      class="modal-overlay collection-modal"
-      id="collection-modal"
+      class="modal-overlay"
+      id="signin-modal"
       aria-hidden="true"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="collection-modal-title"
+      aria-labelledby="signin-title"
     >
       <div class="signin-modal">
-        <button
-          class="modal-close"
-          type="button"
-          aria-label="Close collection form"
-          data-collection-modal-close
-        >
+        <button class="modal-close" type="button" aria-label="Close sign in">
           &times;
         </button>
-        <h2 id="collection-modal-title">Rename collection</h2>
-        <form class="signin-form collection-form">
-          <label for="collection-name">Collection name</label>
-          <input
-            id="collection-name"
-            name="collectionName"
-            type="text"
-            autocomplete="off"
-            required
-          />
-          <p
-            class="signin-message collection-message"
-            role="status"
-            aria-live="polite"
-          ></p>
-          <button type="submit">Save name</button>
+        <h2 id="signin-title">Login</h2>
+        <form class="signin-form">
+          <label for="signin-email">Email</label>
+          <input id="signin-email" name="email" type="text"
+            autocomplete="username" placeholder="Free Bookery" required />
+          <label for="signin-password">Password</label>
+          <input id="signin-password" name="password" type="password"
+            autocomplete="current-password" placeholder="Free Bookery"
+            required />
+          <p class="signup-prompt">
+            New to Free Bookery?
+            <a href="signup.html">Create an account</a>
+          </p>
+          <label class="terms-check" for="signin-terms">
+            <input id="signin-terms" name="terms" type="checkbox" required />
+            <span>I agree to the Terms of Service.</span>
+          </label>
+          <p class="signin-message" role="status" aria-live="polite"></p>
+          <button type="submit">Login</button>
         </form>
       </div>
     </div>

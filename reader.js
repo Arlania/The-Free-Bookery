@@ -13,6 +13,7 @@ const canvas = document.querySelector(".reader-canvas");
 const context = canvas.getContext("2d");
 const previousButton = document.querySelector(".reader-previous");
 const nextButton = document.querySelector(".reader-next");
+const fullscreenButton = document.querySelector(".reader-fullscreen");
 const pageInput = document.querySelector(".reader-page-number input");
 const pageTotal = document.querySelector(".reader-page-total");
 
@@ -95,6 +96,15 @@ async function loadBook() {
     return;
   }
 
+  if (!localStorage.getItem("freeBookNookUser")) {
+    const signupParameters = new URLSearchParams({
+      reason: "read",
+      book: bookId,
+    });
+    window.location.replace(`signup.html?${signupParameters.toString()}`);
+    return;
+  }
+
   try {
     const response = await fetch(`/api/books/${encodeURIComponent(bookId)}`);
 
@@ -105,7 +115,7 @@ async function loadBook() {
     const book = await response.json();
     title.textContent = book.title;
     author.textContent = `by ${book.author}`;
-    document.title = `${book.title} | The Free Book Nook`;
+    document.title = `${book.title} | Free Bookery`;
 
     if (!book.has_file) {
       message.textContent = "The digital copy of this book is not available.";
@@ -126,6 +136,18 @@ async function loadBook() {
 
 previousButton.addEventListener("click", () => goToPage(currentPage - 1));
 nextButton.addEventListener("click", () => goToPage(currentPage + 1));
+fullscreenButton.addEventListener("click", async () => {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await document.documentElement.requestFullscreen();
+    }
+  } catch {
+    message.textContent =
+      "Full screen is not available in this browser window.";
+  }
+});
 pageInput.addEventListener("change", () => {
   goToPage(Number.parseInt(pageInput.value, 10) || currentPage);
 });
@@ -144,10 +166,32 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+document.addEventListener("fullscreenchange", () => {
+  const isFullscreen = Boolean(document.fullscreenElement);
+  const fullscreenLabel = isFullscreen
+    ? "Exit full screen"
+    : "Enter full screen";
+  fullscreenButton.setAttribute("aria-label", fullscreenLabel);
+  fullscreenButton.title = fullscreenLabel;
+  fullscreenButton.setAttribute("aria-pressed", String(isFullscreen));
+  fullscreenButton.classList.toggle("is-fullscreen", isFullscreen);
+
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(renderPage, 150);
+});
+
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(renderPage, 150);
 });
 
 updateControls();
+
+if (!document.fullscreenEnabled) {
+  fullscreenButton.disabled = true;
+  const unavailableLabel = "Full screen is not available in this browser";
+  fullscreenButton.setAttribute("aria-label", unavailableLabel);
+  fullscreenButton.title = unavailableLabel;
+}
+
 loadBook();

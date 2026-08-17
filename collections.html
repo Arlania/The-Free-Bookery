@@ -3,24 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Collections | The Free Book Nook</title>
+    <title>Collections | Free Bookery</title>
     <link rel="icon" type="image/png" href="assets/book-logo.png" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="site-header">
       <nav class="nav-left" aria-label="Primary navigation">
-        <a href="search.html">Search Books</a>
+        <a href="blog.html">Blog</a>
         <a href="index.html#about">About Us</a>
       </nav>
 
-      <a class="brand" href="index.html" aria-label="The Free Book Nook home">
+      <a class="brand" href="index.html" aria-label="Free Bookery home">
         <img src="assets/book-logo.png" alt="" class="brand-logo" />
-        <span>The Free Book Nook</span>
+        <span>Free Bookery</span>
       </a>
 
       <nav class="nav-right" aria-label="Account navigation">
-        <a href="index.html#donate">Donate</a>
+        <a href="donate.html">Donate</a>
         <a
           href="index.html#signin"
           data-modal-open="signin-modal"
@@ -37,7 +37,7 @@
             aria-expanded="false"
           >
             <span class="user-icon" aria-hidden="true"></span>
-            <span class="user-name">TheFreeBookNook</span>
+            <span class="user-name">Free Bookery</span>
           </button>
           <div class="account-dropdown" role="menu">
             <a href="#starred" role="menuitem">Starred</a>
@@ -55,7 +55,7 @@
     <main class="collections-page">
       <section class="collections-hero" aria-labelledby="collections-title">
         <h1 id="collections-title">
-          <span class="page-user-name">TheFreeBookNook</span>
+          <span class="page-user-name">Free Bookery</span>
         </h1>
       </section>
 
@@ -70,6 +70,58 @@
         </div>
       </section>
     </main>
+
+    <footer class="site-footer">
+      <div class="footer-main">
+        <div class="footer-brand">
+          <a href="index.html" aria-label="Free Bookery home">
+            <img src="assets/book-logo.png" alt="" />
+            <span>Free Bookery</span>
+          </a>
+          <p>Free digital reading with creators in mind.</p>
+        </div>
+
+        <nav class="footer-links" aria-label="Footer navigation">
+          <p>Explore</p>
+          <a href="search.html">Search Books</a>
+          <a href="blog.html">Blog</a>
+          <a href="index.html#about">About Us</a>
+        </nav>
+
+        <div class="footer-support">
+          <p>Support</p>
+          <a href="donate.html">Donate</a>
+          <a href="contact.html">Contact Us</a>
+          <div class="footer-social" aria-label="Social and contact links">
+            <a
+              href="https://www.instagram.com/free_bookery/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Free Bookery on Instagram"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="5"></rect>
+                <circle cx="12" cy="12" r="4"></circle>
+                <circle cx="17.5" cy="6.5" r="1"></circle>
+              </svg>
+            </a>
+            <a
+              href="mailto:info@freebookery.org"
+              aria-label="Email Free Bookery"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                <path d="m4 7 8 6 8-6"></path>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>&copy; 2026 Free Bookery. All rights reserved.</p>
+      </div>
+    </footer>
 
     <div
       class="modal-overlay collection-modal"
@@ -102,6 +154,34 @@
           <p class="signin-message collection-message" role="status" aria-live="polite"></p>
           <button type="submit">Create collection</button>
         </form>
+      </div>
+    </div>
+
+    <div
+      class="modal-overlay delete-collection-modal"
+      id="delete-collection-modal"
+      aria-hidden="true"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-collection-title"
+    >
+      <div class="signin-modal">
+        <button
+          class="modal-close"
+          type="button"
+          aria-label="Close delete collection warning"
+          data-delete-collection-close
+        >
+          &times;
+        </button>
+        <h2 id="delete-collection-title">Delete collection?</h2>
+        <p class="delete-collection-warning"></p>
+        <div class="delete-collection-actions">
+          <button type="button" data-delete-collection-cancel>Cancel</button>
+          <button class="confirm-delete-collection" type="button">
+            Delete collection
+          </button>
+        </div>
       </div>
     </div>
 

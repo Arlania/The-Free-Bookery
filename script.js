@@ -823,6 +823,18 @@ signInForm?.addEventListener("submit", (event) => {
     signInMessage.textContent =
       "Use Free Bookery for both email and password.";
   }
+
+  const formData = new FormData(signupForm);
+  const email = String(formData.get("email") || "").trim();
+  const name = String(formData.get("name") || "").trim();
+
+  localStorage.setItem("freeBookNookUser", email);
+  localStorage.setItem("freeBookNookUserName", name);
+
+  const requestedBookId = getRequestedBookId();
+  window.location.href = requestedBookId
+    ? getReaderUrl(requestedBookId)
+    : "index.html";
 });
 
 signupForm?.addEventListener("submit", (event) => {
@@ -1099,6 +1111,35 @@ contactForm?.addEventListener("submit", (event) => {
     contactFormMessage.textContent =
       "Thank you! Your form was submitted, but online delivery is not connected yet. For urgent help, email info@freebookery.org directly.";
   }
+
+  if (!collection) {
+    saveBookMessage.textContent = "Choose a collection.";
+    return;
+  }
+
+  collection.books = Array.isArray(collection.books) ? collection.books : [];
+  const bookAlreadySaved = collection.books.some(
+    (book) =>
+      String(book.id) === String(bookBeingSaved.id) ||
+      (book.title === bookBeingSaved.title &&
+        book.author === bookBeingSaved.author)
+  );
+
+  if (bookAlreadySaved) {
+    saveBookMessage.textContent = `This book is already in ${collection.name}.`;
+    return;
+  }
+
+  collection.books.push({
+    id: bookBeingSaved.id,
+    title: bookBeingSaved.title,
+    author: bookBeingSaved.author,
+    cover_url: bookBeingSaved.cover_url,
+    has_file: bookBeingSaved.has_file,
+    color: "#20183f",
+  });
+  saveCollections(collections);
+  setSaveBookModal(false);
 });
 
 donorTypeOptions.forEach((option) => {
