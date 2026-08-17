@@ -80,6 +80,33 @@
             <h2 id="search-results-title">Search Results</h2>
           </div>
 
+          <div class="search-result-tabs" role="group" aria-label="Search within">
+            <button
+              class="search-result-tab is-active"
+              type="button"
+              data-search-scope="all"
+              aria-pressed="true"
+            >
+              All
+            </button>
+            <button
+              class="search-result-tab"
+              type="button"
+              data-search-scope="title"
+              aria-pressed="false"
+            >
+              Title
+            </button>
+            <button
+              class="search-result-tab"
+              type="button"
+              data-search-scope="author"
+              aria-pressed="false"
+            >
+              Author
+            </button>
+          </div>
+
           <p class="search-status"></p>
           <div class="search-results-grid"></div>
         </section>
