@@ -3,118 +3,571 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Contact Us | The Free Book Nook</title>
+    <meta
+      name="description"
+      content="Contact FreeBookery with questions, ideas, and partnership inquiries."
+    />
+    <title>Contact Us | FreeBookery</title>
     <link rel="icon" type="image/png" href="assets/book-logo.png" />
-    <link rel="stylesheet" href="styles.css" />
+    <style>
+      :root {
+        --ink: #100b2b;
+        --ink-soft: #20183f;
+        --paper: #f7f2e7;
+        --cream: #fffaf0;
+        --gold: #f2d6a4;
+        --muted: #6f687b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        overscroll-behavior-y: none;
+      }
+
+      html {
+        background: var(--ink);
+      }
+
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif;
+      }
+
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        min-height: 0;
+        padding: 4px clamp(28px, 5vw, 90px);
+        background: var(--ink);
+        color: var(--cream);
+        box-shadow: 0 10px 30px rgba(16, 11, 43, 0.18);
+      }
+
+      .site-header a {
+        color: var(--cream);
+        font-size: clamp(1rem, 1.15vw, 1.35rem);
+        font-weight: 650;
+        letter-spacing: 0;
+        text-decoration: none;
+        white-space: nowrap;
+        transition: color 180ms ease, opacity 180ms ease;
+      }
+
+      .site-header a:hover,
+      .site-header a:focus-visible {
+        color: var(--gold);
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding-inline: 12px;
+        font-size: clamp(2.15rem, 3vw, 3.55rem);
+        font-weight: 750;
+        text-align: center;
+      }
+
+      .brand-logo {
+        display: block;
+        width: clamp(58px, 5.4vw, 82px);
+        height: clamp(58px, 5.4vw, 82px);
+        object-fit: contain;
+        flex: 0 0 auto;
+      }
+
+      .nav-left,
+      .nav-right {
+        display: flex;
+        align-items: center;
+        gap: clamp(24px, 4vw, 58px);
+      }
+
+      .nav-right {
+        justify-content: flex-end;
+      }
+
+      .footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 26px clamp(24px, 6vw, 96px);
+        background: var(--ink);
+        color: rgba(255, 250, 240, 0.76);
+        font-size: 0.95rem;
+      }
+
+      .footer-right,
+      .footer-brand {
+        display: inline-flex;
+        align-items: center;
+      }
+
+      .footer-right {
+        gap: 14px;
+      }
+
+      .footer-brand {
+        gap: 10px;
+      }
+
+      .footer-logo {
+        display: block;
+        width: 34px;
+        height: 34px;
+        object-fit: contain;
+        flex: 0 0 auto;
+      }
+
+      .instagram-link,
+      .email-link {
+        display: inline-flex;
+        width: 30px;
+        height: 30px;
+        align-items: center;
+        justify-content: center;
+        color: var(--cream);
+        text-decoration: none;
+        transition: color 180ms ease, transform 180ms ease;
+      }
+
+      .instagram-link:hover,
+      .instagram-link:focus-visible,
+      .email-link:hover,
+      .email-link:focus-visible {
+        color: var(--gold);
+        transform: translateY(-1px);
+      }
+
+      .instagram-link:focus-visible,
+      .email-link:focus-visible {
+        outline: 3px solid rgba(242, 214, 164, 0.42);
+        outline-offset: 3px;
+      }
+
+      .instagram-link svg {
+        display: block;
+        width: 24px;
+        height: 24px;
+      }
+
+      .email-link {
+        font-size: 1.55rem;
+        line-height: 1;
+      }
+
+      main {
+        display: flex;
+        min-height: calc(100vh - clamp(52px, 5.5vw, 70px));
+        align-items: center;
+        padding: clamp(20px, 3vh, 34px) clamp(42px, 4.5vw, 72px)
+          clamp(24px, 3vh, 38px);
+      }
+
+      .contact-layout {
+        display: grid;
+        grid-template-columns: minmax(270px, 0.65fr) minmax(560px, 1.35fr);
+        gap: clamp(32px, 4vw, 64px);
+        width: min(100%, 1320px);
+        margin: 0 auto;
+        align-items: center;
+      }
+
+      .contact-heading {
+        margin: 0;
+        padding-left: clamp(24px, 3vw, 48px);
+        text-align: left;
+      }
+
+      .eyebrow {
+        margin: 0 0 6px;
+        color: var(--ink-soft);
+        font-size: 0.9rem;
+        font-weight: 900;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(3.25rem, 4.8vw, 5rem);
+        line-height: 0.95;
+        letter-spacing: -0.055em;
+        white-space: nowrap;
+      }
+
+      .heading-copy {
+        max-width: 30em;
+        margin: 24px 0 0;
+        color: var(--muted);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(1.05rem, 1.25vw, 1.22rem);
+        line-height: 1.6;
+      }
+
+      .contact-card {
+        width: calc(100% - clamp(60px, 8vw, 110px));
+        margin: 0;
+        padding: clamp(28px, 2.6vw, 38px);
+        justify-self: end;
+        border-radius: 18px;
+        background: var(--ink);
+        color: var(--cream);
+        box-shadow: 0 24px 60px rgba(16, 11, 43, 0.2);
+      }
+
+      .contact-form {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 24px 26px;
+      }
+
+      .field {
+        display: grid;
+        gap: 12px;
+      }
+
+      .field-message,
+      .form-note,
+      .submit-button,
+      .form-status {
+        grid-column: 1 / -1;
+      }
+
+      label {
+        font-size: 1rem;
+        font-weight: 850;
+      }
+
+      input,
+      textarea,
+      button {
+        width: 100%;
+        border-radius: 8px;
+        font: inherit;
+      }
+
+      input,
+      textarea {
+        border: 1px solid rgba(255, 250, 240, 0.42);
+        background: rgba(255, 250, 240, 0.08);
+        color: var(--cream);
+        padding: 15px 16px;
+      }
+
+      input {
+        min-height: 58px;
+      }
+
+      textarea {
+        min-height: clamp(190px, 25vh, 250px);
+        resize: vertical;
+        line-height: 1.5;
+      }
+
+      input::placeholder,
+      textarea::placeholder {
+        color: rgba(255, 250, 240, 0.52);
+      }
+
+      input:focus,
+      textarea:focus,
+      button:focus-visible,
+      a:focus-visible {
+        outline: 3px solid rgba(242, 214, 164, 0.58);
+        outline-offset: 3px;
+      }
+
+      .form-note {
+        margin: -14px 0 0;
+        color: rgba(255, 250, 240, 0.68);
+        font-size: 0.9rem;
+      }
+
+      .submit-button {
+        min-height: 46px;
+        margin-top: 8px;
+        border: 0;
+        background: var(--paper);
+        color: var(--ink);
+        cursor: pointer;
+        font-weight: 900;
+        transition: background 180ms ease, transform 180ms ease;
+      }
+
+      .submit-button:hover {
+        background: var(--gold);
+        transform: translateY(-2px);
+      }
+
+      .submit-button:disabled {
+        cursor: wait;
+        opacity: 0.72;
+        transform: none;
+      }
+
+      .form-status {
+        min-height: 1.4em;
+        margin: -14px 0 0;
+        color: var(--gold);
+        text-align: center;
+        font-size: 0.92rem;
+        font-weight: 750;
+      }
+
+      .direct-email {
+        margin: 28px 0 0;
+        color: var(--muted);
+        font-family: Georgia, "Times New Roman", serif;
+        line-height: 1.55;
+        text-align: left;
+      }
+
+      .direct-email a {
+        color: var(--ink);
+        font-weight: 400;
+      }
+
+      @media (max-width: 980px) {
+        .site-header {
+          padding-block: 4px;
+        }
+
+        main {
+          display: block;
+          padding-inline: 20px;
+        }
+
+        .contact-layout {
+          grid-template-columns: 1fr;
+          gap: 28px;
+          max-width: 760px;
+        }
+
+        .contact-card {
+          width: 100%;
+        }
+
+        .contact-heading {
+          padding-left: 0;
+          text-align: center;
+        }
+
+        .heading-copy {
+          margin-inline: auto;
+        }
+
+        .direct-email {
+          text-align: center;
+        }
+
+        h1 {
+          font-size: clamp(3.1rem, 10vw, 5rem);
+        }
+      }
+
+      @media (max-width: 660px) {
+        .brand {
+          gap: 9px;
+          font-size: 2rem;
+        }
+
+        .brand-logo {
+          width: 52px;
+          height: 52px;
+        }
+
+        .contact-form {
+          grid-template-columns: 1fr;
+        }
+
+        .field-message,
+        .form-note,
+        .submit-button,
+        .form-status {
+          grid-column: auto;
+        }
+
+        .footer {
+          display: grid;
+        }
+      }
+    </style>
   </head>
   <body>
     <header class="site-header">
       <nav class="nav-left" aria-label="Primary navigation">
-        <a href="search.html">Search Books</a>
+        <a href="blog.html">Blog</a>
         <a href="index.html#about">About Us</a>
       </nav>
 
-      <a class="brand" href="index.html" aria-label="The Free Book Nook home">
+      <a class="brand" href="index.html" aria-label="Free Bookery home">
         <img src="assets/book-logo.png" alt="" class="brand-logo" />
-        <span>The Free Book Nook</span>
+        <span>Free Bookery</span>
       </a>
 
       <nav class="nav-right" aria-label="Account navigation">
-        <a href="index.html#donate">Donate</a>
-        <a href="#signin" data-modal-open="signin-modal" class="login-link">
-          Login/Sign up
-        </a>
-        <div class="user-menu" hidden>
-          <button
-            class="user-button"
-            type="button"
-            aria-label="User account menu"
-            aria-haspopup="true"
-            aria-expanded="false"
-          >
-            <span class="user-icon" aria-hidden="true"></span>
-            <span class="user-name">TheFreeBookNook</span>
-          </button>
-          <div class="account-dropdown" role="menu">
-            <a href="#starred" role="menuitem">Starred</a>
-            <a href="collections.html" role="menuitem">Collections</a>
-            <a href="#creator-access" role="menuitem">Creator Access</a>
-            <a href="contact.html" role="menuitem" aria-current="page">
-              Contact Us
-            </a>
-            <button class="logout-button" type="button" role="menuitem">
-              Sign Out
-            </button>
-          </div>
-        </div>
+        <a href="donate.html">Donate</a>
+        <a href="signup.html" class="login-link">Login/Sign up</a>
       </nav>
     </header>
 
-    <main class="contact-page">
-      <section class="contact-intro" aria-labelledby="contact-title">
-        <p class="contact-eyebrow">We’re here to help</p>
-        <h1 id="contact-title">Contact Us</h1>
-        <p>Send us a message and tell us how we can help.</p>
-      </section>
+    <main>
+      <div class="contact-layout">
+        <div class="contact-heading">
+          <p class="eyebrow">We’re here to help</p>
+          <h1>Contact Us</h1>
+          <p class="heading-copy">
+            Have a question, an idea, or an opportunity to work together? Send
+            us a message and the FreeBookery team will get back to you.
+          </p>
+          <p class="direct-email">
+            Prefer email? Write to
+            <a href="mailto:info@freebookery.org">info@freebookery.org</a>.
+          </p>
+        </div>
 
-      <section class="contact-card" aria-label="Contact form">
-        <form class="contact-form">
-          <div class="contact-field-row">
-            <div class="contact-field">
-              <label for="contact-name">Name</label>
-              <input id="contact-name" name="name" type="text"
-                autocomplete="name" placeholder="Your name" required />
-            </div>
-            <div class="contact-field">
-              <label for="contact-email">Email</label>
-              <input id="contact-email" name="email" type="email"
-                autocomplete="email" placeholder="you@example.com" required />
-            </div>
+        <section class="contact-card" aria-label="Contact form">
+          <form class="contact-form" id="contact-form">
+          <div class="field">
+            <label for="contact-name">Name</label>
+            <input
+              id="contact-name"
+              name="name"
+              type="text"
+              autocomplete="name"
+              placeholder="Your name"
+              required
+            />
           </div>
 
-          <div class="contact-field">
+          <div class="field">
+            <label for="contact-email">Email</label>
+            <input
+              id="contact-email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+
+          <div class="field field-message">
             <label for="contact-message">Message</label>
-            <textarea id="contact-message" name="message" rows="7"
-              maxlength="1200" placeholder="Tell us what’s on your mind..."
-              required></textarea>
-            <p class="contact-field-hint">Up to 1,200 characters.</p>
+            <textarea
+              id="contact-message"
+              name="message"
+              maxlength="1200"
+              placeholder="Tell us what’s on your mind..."
+              required
+            ></textarea>
           </div>
 
-          <p class="contact-form-message" role="status" aria-live="polite"></p>
-          <button type="submit">Send message</button>
-        </form>
-      </section>
+          <p class="form-note">Up to 1,200 characters.</p>
+          <button class="submit-button" type="submit">Send message</button>
+          <p class="form-status" id="form-status" aria-live="polite"></p>
+          </form>
+
+        </section>
+      </div>
     </main>
 
-    <div class="modal-overlay" id="signin-modal" aria-hidden="true"
-      role="dialog" aria-modal="true" aria-labelledby="signin-title">
-      <div class="signin-modal">
-        <button class="modal-close" type="button" aria-label="Close sign in">
-          &times;
-        </button>
-        <h2 id="signin-title">Login</h2>
-        <form class="signin-form">
-          <label for="signin-email">Email</label>
-          <input id="signin-email" name="email" type="text"
-            autocomplete="username" placeholder="TheFreeBookNook" required />
-          <label for="signin-password">Password</label>
-          <input id="signin-password" name="password" type="password"
-            autocomplete="current-password" placeholder="TheFreeBookNook"
-            required />
-          <p class="signup-prompt">
-            New to The Free Book Nook?
-            <a href="signup.html">Create an account</a>
-          </p>
-          <label class="terms-check" for="signin-terms">
-            <input id="signin-terms" name="terms" type="checkbox" required />
-            <span>I agree to the Terms of Service.</span>
-          </label>
-          <p class="signin-message" role="status" aria-live="polite"></p>
-          <button type="submit">Login</button>
-        </form>
-      </div>
-    </div>
+    <footer class="footer">
+      <span class="footer-brand">
+        <img src="assets/book-logo.png" alt="" class="footer-logo" />
+        <span>FreeBookery</span>
+      </span>
+      <span class="footer-right">
+        <a
+          class="instagram-link"
+          href="https://www.instagram.com/free_bookery/"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="FreeBookery on Instagram"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+          </svg>
+        </a>
+        <a
+          class="email-link"
+          href="mailto:info@freebookery.org"
+          aria-label="Email FreeBookery at info@freebookery.org"
+          title="info@freebookery.org"
+        >
+          <span aria-hidden="true">✉</span>
+        </a>
+        <span>Free legal reading, built with creators in mind.</span>
+      </span>
+    </footer>
 
-    <script src="script.js"></script>
+    <script>
+      const contactForm = document.querySelector("#contact-form");
+      const formStatus = document.querySelector("#form-status");
+      const submitButton = contactForm.querySelector('button[type="submit"]');
+
+      contactForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const formData = new FormData(contactForm);
+        const originalButtonText = submitButton.textContent;
+
+        submitButton.disabled = true;
+        submitButton.textContent = "Sending…";
+        formStatus.textContent = "Sending your message…";
+
+        try {
+          const response = await fetch("/api/contact", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: formData.get("name"),
+              email: formData.get("email"),
+              message: formData.get("message"),
+            }),
+          });
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || "The message could not be sent.");
+          }
+
+          contactForm.reset();
+          formStatus.textContent =
+            "Thank you! Your message has been sent successfully.";
+        } catch (error) {
+          console.error(error);
+          formStatus.textContent =
+            "Sorry, your message could not be sent. Please email info@freebookery.org directly.";
+        } finally {
+          submitButton.disabled = false;
+          submitButton.textContent = originalButtonText;
+        }
+      });
+    </script>
   </body>
 </html>
