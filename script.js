@@ -77,12 +77,30 @@ const newCollectionInput = document.querySelector(
   "#save-book-new-collection"
 );
 const saveBookMessage = document.querySelector(".save-book-message");
+const creatorPublicPage = document.querySelector(".creator-access-page");
+const creatorDashboard = document.querySelector("[data-creator-dashboard]");
+const creatorTitleGrid = document.querySelector("[data-creator-title-grid]");
+const creatorEmptyLibrary = document.querySelector("[data-creator-empty-library]");
+const creatorTitleModal = document.querySelector("[data-creator-title-modal]");
+const creatorTitleForm = document.querySelector(".creator-title-form");
+const creatorFormMessage = document.querySelector("[data-creator-form-message]");
+const creatorReview = document.querySelector("[data-creator-review]");
+const creatorNextButton = document.querySelector("[data-creator-form-next]");
+const creatorBackButton = document.querySelector("[data-creator-form-back]");
+const creatorDraftButton = document.querySelector("[data-creator-form-draft]");
+const creatorSubmitButton = document.querySelector("[data-creator-form-submit]");
 const demoAccount = {
   email: "Free Bookery",
   password: "Free Bookery",
+  creatorApproved: true,
 };
 const collectionsStorageKey = "freeBookNookCollections";
 const recentSearchesStorageKey = "freeBookNookRecentSearches";
+const creatorTitlesStorageKey = "freeBookNookCreatorTitles";
+const creatorStatusStorageKey = "freeBookNookCreatorStatus";
+const userRoleStorageKey = "freeBookNookUserRole";
+const serverAuthStorageKey = "freeBookNookServerAuth";
+const homeRecentSearchPreviewCount = 3;
 const sampleBooks = [
   {
     title: "Moonlit Margins",
@@ -117,6 +135,8 @@ let latestSearchQuery = "";
 let activeSearchScope = "all";
 let bookBeingSaved = null;
 let saveBookTrigger = null;
+let homeRecentSearchesExpanded = false;
+let creatorFormStep = 1;
 
 function getRecentSearches() {
   try {
@@ -138,7 +158,7 @@ function saveRecentSearch(query) {
   searches.unshift(normalizedQuery);
   localStorage.setItem(
     recentSearchesStorageKey,
-    JSON.stringify(searches.slice(0, 8))
+    JSON.stringify(searches)
   );
 }
 
@@ -207,11 +227,14 @@ function renderHomeRecentSearches() {
   if (!homeRecentSearchList || !homeRecentSearches || !homeSearchInput) return;
 
   const searches = getRecentSearches();
+  const visibleSearches = homeRecentSearchesExpanded
+    ? searches
+    : searches.slice(0, homeRecentSearchPreviewCount);
   homeRecentSearchList.replaceChildren();
   homeRecentSearches.hidden = searches.length === 0;
   homeSearchInput.setAttribute("aria-expanded", String(searches.length > 0));
 
-  searches.forEach((query) => {
+  visibleSearches.forEach((query) => {
     const item = document.createElement("div");
     item.className = "home-recent-search-item";
 
@@ -233,11 +256,30 @@ function renderHomeRecentSearches() {
       `Delete ${query} from recent searches`
     );
     deleteButton.innerHTML = "&times;";
-    deleteButton.addEventListener("click", () => deleteRecentSearch(query));
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      deleteRecentSearch(query);
+    });
 
     item.append(searchButton, deleteButton);
     homeRecentSearchList.append(item);
   });
+
+  if (searches.length > homeRecentSearchPreviewCount) {
+    const moreButton = document.createElement("button");
+    moreButton.className = "home-recent-search-more";
+    moreButton.type = "button";
+    moreButton.textContent = homeRecentSearchesExpanded ? "Show less" : "More";
+    moreButton.setAttribute("aria-expanded", String(homeRecentSearchesExpanded));
+    moreButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      homeRecentSearchesExpanded = !homeRecentSearchesExpanded;
+      renderHomeRecentSearches();
+    });
+    homeRecentSearchList.append(moreButton);
+  } else {
+    homeRecentSearchesExpanded = false;
+  }
 }
 
 homeSearchInput?.addEventListener("focus", renderHomeRecentSearches);
@@ -330,6 +372,79 @@ function updateUserState() {
 
   if (pageUserName) {
     pageUserName.textContent = loggedIn ? displayName : "Guest";
+  }
+}
+
+function removeAdminRoleSwitcher() {
+  document.querySelector(".admin-role-switcher")?.remove();
+}
+
+function applyAuthenticatedSession(session) {
+  localStorage.setItem("freeBookNookUser", session.name);
+  localStorage.setItem("freeBookNookUserName", session.name);
+  localStorage.setItem(userRoleStorageKey, session.effectiveRole);
+  localStorage.setItem(creatorStatusStorageKey, session.creatorStatus);
+  localStorage.setItem(serverAuthStorageKey, "true");
+
+  updateUserState();
+  renderCreatorDashboard();
+  removeAdminRoleSwitcher();
+
+  if (session.role !== "admin") return;
+  const dropdown = document.querySelector(".account-dropdown");
+  if (!dropdown) return;
+
+  const switcher = document.createElement("div");
+  switcher.className = "admin-role-switcher";
+
+  const label = document.createElement("label");
+  label.textContent = "View as";
+
+  const select = document.createElement("select");
+  select.setAttribute("aria-label", "View site as role");
+  ["reader", "creator", "admin"].forEach((role) => {
+    const option = document.createElement("option");
+    option.value = role;
+    option.textContent = role[0].toUpperCase() + role.slice(1);
+    option.selected = role === session.effectiveRole;
+    select.append(option);
+  });
+
+  select.addEventListener("change", async () => {
+    const response = await fetch("/api/admin/role", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: select.value }),
+    });
+    if (!response.ok) return;
+    applyAuthenticatedSession(await response.json());
+  });
+
+  label.append(select);
+  switcher.append(label);
+  dropdown.prepend(switcher);
+}
+
+async function initializeServerSession() {
+  try {
+    const response = await fetch("/api/auth/session", {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return;
+    const session = await response.json();
+    if (session.authenticated) {
+      applyAuthenticatedSession(session);
+    } else if (localStorage.getItem(serverAuthStorageKey) === "true") {
+      localStorage.removeItem("freeBookNookUser");
+      localStorage.removeItem("freeBookNookUserName");
+      localStorage.removeItem(userRoleStorageKey);
+      localStorage.removeItem(creatorStatusStorageKey);
+      localStorage.removeItem(serverAuthStorageKey);
+      updateUserState();
+      renderCreatorDashboard();
+    }
+  } catch {
+    // The static-only demo remains available when the API server is offline.
   }
 }
 
@@ -791,13 +906,14 @@ collectionForm?.addEventListener("submit", (event) => {
   setCollectionModal(false);
 });
 
-signInForm?.addEventListener("submit", (event) => {
+signInForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const formData = new FormData(signInForm);
   const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "").trim();
   const termsAccepted = formData.get("terms") === "on";
+  let secureLoginUnavailable = false;
 
   if (!termsAccepted) {
     if (signInMessage) {
@@ -806,9 +922,34 @@ signInForm?.addEventListener("submit", (event) => {
     return;
   }
 
+  try {
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountName: email, password }),
+    });
+
+    if (response.ok) {
+      applyAuthenticatedSession(await response.json());
+      setSignInModal(false);
+      signInForm.reset();
+      return;
+    }
+    secureLoginUnavailable = response.status === 404;
+  } catch {
+    // Continue to the local demo account when the API server is unavailable.
+    secureLoginUnavailable = true;
+  }
+
   if (email === demoAccount.email && password === demoAccount.password) {
     localStorage.setItem("freeBookNookUser", demoAccount.email);
+    localStorage.setItem(userRoleStorageKey, "creator");
+    localStorage.setItem(
+      creatorStatusStorageKey,
+      demoAccount.creatorApproved ? "approved" : "reader"
+    );
     updateUserState();
+    renderCreatorDashboard();
     setSignInModal(false);
     signInForm.reset();
 
@@ -820,8 +961,9 @@ signInForm?.addEventListener("submit", (event) => {
   }
 
   if (signInMessage) {
-    signInMessage.textContent =
-      "Use Free Bookery for both email and password.";
+    signInMessage.textContent = secureLoginUnavailable
+      ? "Secure sign-in is unavailable. Start the Free Bookery server and try again."
+      : "Account name or password is incorrect.";
   }
 });
 
@@ -839,6 +981,9 @@ signupForm?.addEventListener("submit", (event) => {
 
   localStorage.setItem("freeBookNookUser", email);
   localStorage.setItem("freeBookNookUserName", name);
+  localStorage.setItem(creatorStatusStorageKey, "reader");
+  localStorage.setItem(userRoleStorageKey, "reader");
+  localStorage.removeItem(serverAuthStorageKey);
 
   const requestedBookId = getRequestedBookId();
   window.location.href = requestedBookId
@@ -846,12 +991,22 @@ signupForm?.addEventListener("submit", (event) => {
     : "index.html";
 });
 
-logoutButton?.addEventListener("click", () => {
+logoutButton?.addEventListener("click", async () => {
+  try {
+    await fetch("/api/auth/logout", { method: "POST" });
+  } catch {
+    // Local state is still cleared if the server is unavailable.
+  }
   localStorage.removeItem("freeBookNookUser");
   localStorage.removeItem("freeBookNookUserName");
+  localStorage.removeItem(userRoleStorageKey);
+  localStorage.removeItem(creatorStatusStorageKey);
+  localStorage.removeItem(serverAuthStorageKey);
+  removeAdminRoleSwitcher();
   userMenu?.classList.remove("is-open");
   userButton?.setAttribute("aria-expanded", "false");
   updateUserState();
+  renderCreatorDashboard();
 });
 
 userButton?.addEventListener("click", () => {
@@ -1201,10 +1356,242 @@ saveBookForm?.addEventListener("submit", (event) => {
   setSaveBookModal(false);
 });
 
+function getCreatorTitles() {
+  try {
+    const titles = JSON.parse(
+      localStorage.getItem(creatorTitlesStorageKey) || "[]"
+    );
+    return Array.isArray(titles) ? titles : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCreatorTitles(titles) {
+  localStorage.setItem(creatorTitlesStorageKey, JSON.stringify(titles));
+}
+
+function hasApprovedCreatorAccess() {
+  const role = localStorage.getItem(userRoleStorageKey);
+  return (
+    Boolean(localStorage.getItem("freeBookNookUser")) &&
+    (role === "creator" ||
+      role === "admin" ||
+      localStorage.getItem(creatorStatusStorageKey) === "approved")
+  );
+}
+
+function renderCreatorDashboard() {
+  if (!creatorPublicPage || !creatorDashboard) return;
+
+  const approved = hasApprovedCreatorAccess();
+  creatorPublicPage.hidden = approved;
+  creatorDashboard.hidden = !approved;
+
+  if (!approved || !creatorTitleGrid || !creatorEmptyLibrary) return;
+
+  const titles = getCreatorTitles();
+  creatorTitleGrid.replaceChildren();
+  creatorEmptyLibrary.hidden = titles.length > 0;
+
+  const titleCount = document.querySelector("[data-creator-title-count]");
+  const liveCount = document.querySelector("[data-creator-live-count]");
+  const reviewCount = document.querySelector("[data-creator-review-count]");
+
+  if (titleCount) titleCount.textContent = String(titles.length);
+  if (liveCount) {
+    liveCount.textContent = String(
+      titles.filter((title) => title.status === "Live").length
+    );
+  }
+  if (reviewCount) {
+    reviewCount.textContent = String(
+      titles.filter((title) => title.status === "Under review").length
+    );
+  }
+
+  titles.forEach((title) => {
+    const card = document.createElement("article");
+    card.className = "creator-title-card";
+
+    const cover = document.createElement("div");
+    cover.className = "creator-title-cover";
+    cover.textContent = (title.title || "Untitled")
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase();
+
+    const heading = document.createElement("h3");
+    heading.textContent = title.title || "Untitled draft";
+
+    const author = document.createElement("p");
+    author.textContent = title.author || "Author not added";
+
+    const status = document.createElement("span");
+    status.className = "creator-title-status";
+    if (title.status === "Under review") status.classList.add("is-review");
+    status.textContent = title.status || "Draft";
+
+    card.append(cover, heading, author, status);
+    creatorTitleGrid.append(card);
+  });
+}
+
+function updateCreatorFormStep(step) {
+  if (!creatorTitleForm) return;
+  creatorFormStep = Math.min(3, Math.max(1, step));
+
+  creatorTitleForm.querySelectorAll("[data-creator-step]").forEach((panel) => {
+    panel.hidden = Number(panel.dataset.creatorStep) !== creatorFormStep;
+  });
+
+  document.querySelectorAll("[data-creator-step-indicator]").forEach((item) => {
+    const itemStep = Number(item.dataset.creatorStepIndicator);
+    item.classList.toggle("is-active", itemStep === creatorFormStep);
+    item.classList.toggle("is-complete", itemStep < creatorFormStep);
+  });
+
+  if (creatorBackButton) creatorBackButton.hidden = creatorFormStep === 1;
+  if (creatorNextButton) creatorNextButton.hidden = creatorFormStep === 3;
+  if (creatorSubmitButton) creatorSubmitButton.hidden = creatorFormStep !== 3;
+
+  if (creatorFormStep === 3) renderCreatorReview();
+  if (creatorFormMessage) creatorFormMessage.textContent = "";
+}
+
+function setCreatorTitleModal(open) {
+  if (!creatorTitleModal || !creatorTitleForm) return;
+  creatorTitleModal.hidden = !open;
+  creatorTitleModal.setAttribute("aria-hidden", String(!open));
+  document.body.style.overflow = open ? "hidden" : "";
+
+  if (open) {
+    updateCreatorFormStep(1);
+    creatorTitleForm.querySelector("input, select")?.focus();
+  } else {
+    creatorTitleForm.reset();
+    updateCreatorFormStep(1);
+  }
+}
+
+function creatorStepIsValid() {
+  if (!creatorTitleForm) return false;
+  const currentPanel = creatorTitleForm.querySelector(
+    `[data-creator-step="${creatorFormStep}"]`
+  );
+  const fields = currentPanel?.querySelectorAll("input, select, textarea") || [];
+
+  for (const field of fields) {
+    if (!field.checkValidity()) {
+      field.reportValidity();
+      return false;
+    }
+  }
+  return true;
+}
+
+function getCreatorFormData(status) {
+  const formData = new FormData(creatorTitleForm);
+  const manuscript = formData.get("manuscript");
+  const cover = formData.get("cover");
+
+  return {
+    id: `creator-title-${Date.now()}`,
+    title: String(formData.get("title") || "").trim(),
+    subtitle: String(formData.get("subtitle") || "").trim(),
+    author: String(formData.get("author") || "").trim(),
+    language: String(formData.get("language") || "English"),
+    isbn: String(formData.get("isbn") || "").trim(),
+    series: String(formData.get("series") || "").trim(),
+    edition: String(formData.get("edition") || "").trim(),
+    contributors: String(formData.get("contributors") || "").trim(),
+    description: String(formData.get("description") || "").trim(),
+    categories: String(formData.get("categories") || "").trim(),
+    keywords: String(formData.get("keywords") || "").trim(),
+    readingAge: String(formData.get("readingAge") || "").trim(),
+    explicit: String(formData.get("explicit") || "no"),
+    territories: String(formData.get("territories") || "Worldwide"),
+    accessibility: String(formData.get("accessibility") || "").trim(),
+    manuscriptName: manuscript?.name || "",
+    coverName: cover?.name || "",
+    status,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function renderCreatorReview() {
+  if (!creatorReview || !creatorTitleForm) return;
+  const title = getCreatorFormData("Under review");
+  const reviewItems = [
+    ["Title", title.title || "Not added"],
+    ["Author", title.author || "Not added"],
+    ["Language", title.language],
+    ["ISBN", title.isbn || "Not provided"],
+    ["Category", title.categories || "Not added"],
+    ["Availability", title.territories],
+    ["Book file", title.manuscriptName || "Not uploaded"],
+    ["Cover", title.coverName || "Not uploaded"],
+  ];
+
+  creatorReview.replaceChildren();
+  reviewItems.forEach(([label, value]) => {
+    const item = document.createElement("div");
+    const name = document.createElement("span");
+    const content = document.createElement("strong");
+    name.textContent = label;
+    content.textContent = value;
+    item.append(name, content);
+    creatorReview.append(item);
+  });
+}
+
+document.querySelectorAll("[data-creator-title-open]").forEach((button) => {
+  button.addEventListener("click", () => setCreatorTitleModal(true));
+});
+
+document
+  .querySelector("[data-creator-title-close]")
+  ?.addEventListener("click", () => setCreatorTitleModal(false));
+
+creatorTitleModal?.addEventListener("click", (event) => {
+  if (event.target === creatorTitleModal) setCreatorTitleModal(false);
+});
+
+creatorNextButton?.addEventListener("click", () => {
+  if (creatorStepIsValid()) updateCreatorFormStep(creatorFormStep + 1);
+});
+
+creatorBackButton?.addEventListener("click", () => {
+  updateCreatorFormStep(creatorFormStep - 1);
+});
+
+creatorDraftButton?.addEventListener("click", () => {
+  const titles = getCreatorTitles();
+  titles.unshift(getCreatorFormData("Draft"));
+  saveCreatorTitles(titles);
+  setCreatorTitleModal(false);
+  renderCreatorDashboard();
+});
+
+creatorTitleForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!creatorStepIsValid()) return;
+
+  const titles = getCreatorTitles();
+  titles.unshift(getCreatorFormData("Under review"));
+  saveCreatorTitles(titles);
+  setCreatorTitleModal(false);
+  renderCreatorDashboard();
+});
+
 updateUserState();
 renderCollections();
 renderBookshelf();
 renderRecentSearches();
+renderCreatorDashboard();
+initializeServerSession();
 setupReadingRequiredPrompt();
 setupBlogPostPreviews();
 

@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "start": "node backend/server.js",
+    "create-admin": "node backend/create-admin.js"
+  },
   "dependencies": {
     "better-sqlite3": "^13.0.1",
     "express": "^5.2.1",
