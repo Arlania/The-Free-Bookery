@@ -1,2 +1,5 @@
 handoff.md
 .DS_Store
+backend/database/auth.db
+backend/database/auth.db-shm
+backend/database/auth.db-wal

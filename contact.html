@@ -99,6 +99,121 @@
         justify-content: flex-end;
       }
 
+      .user-menu {
+        position: relative;
+        align-items: center;
+      }
+
+      .user-menu:not([hidden]) {
+        display: flex;
+      }
+
+      .user-button,
+      .logout-button {
+        border: 0;
+        background: transparent;
+        color: var(--cream);
+        cursor: pointer;
+        font: inherit;
+      }
+
+      .user-button {
+        display: inline-flex;
+        width: auto;
+        align-items: center;
+        gap: 9px;
+        padding: 0;
+        font-size: clamp(0.95rem, 1.05vw, 1.2rem);
+        font-weight: 650;
+      }
+
+      .user-button::after {
+        width: 0;
+        height: 0;
+        border-top: 5px solid var(--cream);
+        border-right: 4px solid transparent;
+        border-left: 4px solid transparent;
+        content: "";
+        opacity: 0.78;
+      }
+
+      .user-icon {
+        position: relative;
+        display: inline-block;
+        width: 34px;
+        height: 34px;
+        border: 2px solid var(--cream);
+        border-radius: 50%;
+      }
+
+      .user-icon::before,
+      .user-icon::after {
+        position: absolute;
+        left: 50%;
+        background: var(--cream);
+        content: "";
+        transform: translateX(-50%);
+      }
+
+      .user-icon::before {
+        top: 7px;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+      }
+
+      .user-icon::after {
+        bottom: 7px;
+        width: 18px;
+        height: 8px;
+        border-radius: 12px 12px 6px 6px;
+      }
+
+      .account-dropdown {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        z-index: 30;
+        display: grid;
+        min-width: 210px;
+        padding: 8px;
+        border: 1px solid rgba(255, 250, 240, 0.14);
+        border-radius: 8px;
+        background: var(--ink);
+        box-shadow: 0 20px 54px rgba(16, 11, 43, 0.22);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-4px);
+        transition: opacity 150ms ease, transform 150ms ease;
+      }
+
+      .user-menu:hover .account-dropdown,
+      .user-menu:focus-within .account-dropdown,
+      .user-menu.is-open .account-dropdown {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      .account-dropdown a,
+      .logout-button {
+        width: 100%;
+        padding: 11px 14px;
+        border-radius: 6px;
+        color: var(--cream);
+        font-size: 0.95rem;
+        font-weight: 700;
+        text-align: left;
+      }
+
+      .account-dropdown a:hover,
+      .account-dropdown a:focus-visible,
+      .logout-button:hover,
+      .logout-button:focus-visible {
+        background: rgba(247, 242, 231, 0.12);
+        color: var(--cream);
+      }
+
       .footer {
         display: flex;
         align-items: center;
@@ -422,6 +537,27 @@
       <nav class="nav-right" aria-label="Account navigation">
         <a href="donate.html">Donate</a>
         <a href="signup.html" class="login-link">Login/Sign up</a>
+        <div class="user-menu" hidden>
+          <button
+            class="user-button"
+            type="button"
+            aria-label="User account menu"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            <span class="user-icon" aria-hidden="true"></span>
+            <span class="user-name">Free Bookery</span>
+          </button>
+          <div class="account-dropdown" role="menu">
+            <a href="#starred" role="menuitem">Starred</a>
+            <a href="collections.html" role="menuitem">Collections</a>
+            <a href="creator-access.html" role="menuitem">Creator Access</a>
+            <a href="contact.html" role="menuitem" aria-current="page">Contact Us</a>
+            <button class="logout-button" type="button" role="menuitem">
+              Sign Out
+            </button>
+          </div>
+        </div>
       </nav>
     </header>
 
@@ -529,6 +665,44 @@
       const contactForm = document.querySelector("#contact-form");
       const formStatus = document.querySelector("#form-status");
       const submitButton = contactForm.querySelector('button[type="submit"]');
+      const loginLink = document.querySelector(".login-link");
+      const userMenu = document.querySelector(".user-menu");
+      const userButton = document.querySelector(".user-button");
+      const userName = document.querySelector(".user-name");
+      const logoutButton = document.querySelector(".logout-button");
+
+      function updateContactUserState() {
+        const storedUser = localStorage.getItem("freeBookNookUser");
+        const storedName = localStorage.getItem("freeBookNookUserName");
+        const loggedIn = Boolean(storedUser);
+
+        loginLink.hidden = loggedIn;
+        userMenu.hidden = !loggedIn;
+        if (loggedIn) userName.textContent = storedName || storedUser;
+      }
+
+      userButton.addEventListener("click", () => {
+        const isOpen = userMenu.classList.toggle("is-open");
+        userButton.setAttribute("aria-expanded", String(isOpen));
+      });
+
+      logoutButton.addEventListener("click", async () => {
+        try {
+          await fetch("/api/auth/logout", { method: "POST" });
+        } catch {
+          // Local state is still cleared if the API is unavailable.
+        }
+        localStorage.removeItem("freeBookNookUser");
+        localStorage.removeItem("freeBookNookUserName");
+        localStorage.removeItem("freeBookNookUserRole");
+        localStorage.removeItem("freeBookNookCreatorStatus");
+        localStorage.removeItem("freeBookNookServerAuth");
+        userMenu.classList.remove("is-open");
+        userButton.setAttribute("aria-expanded", "false");
+        updateContactUserState();
+      });
+
+      updateContactUserState();
 
       contactForm.addEventListener("submit", async (event) => {
         event.preventDefault();
