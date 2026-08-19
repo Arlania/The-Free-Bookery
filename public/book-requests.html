@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Book Requests | Free Bookery</title>
+    <link rel="icon" type="image/png" href="assets/book-logo.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="account-feed-body">
+    <header class="site-header">
+      <nav class="nav-left" aria-label="Primary navigation"><a href="blog.html">Blog</a><a href="index.html#about">About Us</a></nav>
+      <a class="brand" href="index.html" aria-label="Free Bookery home"><img src="assets/book-logo.png" alt="" class="brand-logo" /><span>Free Bookery</span></a>
+      <nav class="nav-right" aria-label="Account navigation"><a href="donate.html">Donate</a><a href="index.html#signin" class="login-link">Login/Sign up</a><div class="user-menu" hidden><button class="user-button" type="button" aria-label="User account menu" aria-haspopup="true" aria-expanded="false"><span class="user-icon" aria-hidden="true"></span><span class="user-name">Free Bookery</span></button><div class="account-dropdown" role="menu"><a href="collections.html" role="menuitem">Collections</a><a href="creator-access.html" role="menuitem">Creator Access</a><a href="contact.html" role="menuitem">Contact Us</a><button class="logout-button" type="button" role="menuitem">Sign Out</button></div></div></nav>
+    </header>
+    <main class="account-feed-page request-page">
+      <header class="account-feed-heading">
+        <div><p class="creator-eyebrow">Reader requests</p><h1>Request a book</h1><p>Tell us what you want to read. You can follow every update here.</p></div>
+      </header>
+      <section class="request-form-panel" aria-labelledby="new-request-title">
+        <h2 id="new-request-title">New request</h2>
+        <form class="request-form" data-request-form>
+          <label>Book title <input name="title" maxlength="300" required /></label>
+          <label>Author <span>Optional</span><input name="author" maxlength="300" /></label>
+          <label>ISBN <span>Optional</span><input name="isbn" maxlength="40" /></label>
+          <label>Preferred format <select name="format"><option value="any">Any format</option><option value="pdf">PDF</option><option value="epub">EPUB</option></select></label>
+          <label class="request-form-wide">Notes <span>Optional</span><textarea name="notes" rows="4" maxlength="2000" placeholder="Edition, language, or other helpful details"></textarea></label>
+          <p data-request-form-message role="status" aria-live="polite"></p>
+          <button type="submit">Submit request</button>
+        </form>
+      </section>
+      <section class="request-history" aria-labelledby="request-history-title">
+        <div class="request-history-heading"><h2 id="request-history-title">Your requests</h2><p data-request-list-message role="status" aria-live="polite"></p></div>
+        <div class="request-list" data-request-list></div>
+        <nav class="feed-pagination" aria-label="Request pages"><button type="button" data-request-previous>Previous</button><span data-request-page>Page 1</span><button type="button" data-request-next>Next</button></nav>
+      </section>
+    </main>
+    <script src="script.js"></script><script src="book-requests.js"></script>
+  </body>
+</html>

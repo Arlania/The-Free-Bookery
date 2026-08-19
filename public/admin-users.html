@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Users | Free Bookery Admin</title>
+    <link rel="icon" type="image/png" href="assets/book-logo.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="account-feed-body">
+    <header class="site-header">
+      <nav class="nav-left" aria-label="Primary navigation"><a href="blog.html">Blog</a><a href="index.html#about">About Us</a></nav>
+      <a class="brand" href="index.html" aria-label="Free Bookery home"><img src="assets/book-logo.png" alt="" class="brand-logo" /><span>Free Bookery</span></a>
+      <nav class="nav-right" aria-label="Account navigation"><a href="donate.html">Donate</a><a href="index.html#signin" class="login-link">Login/Sign up</a><div class="user-menu" hidden><button class="user-button" type="button" aria-label="User account menu" aria-haspopup="true" aria-expanded="false"><span class="user-icon" aria-hidden="true"></span><span class="user-name">Free Bookery</span></button><div class="account-dropdown" role="menu"><button class="logout-button" type="button" role="menuitem">Sign Out</button></div></div></nav>
+    </header>
+    <main class="account-feed-page">
+      <header class="account-feed-heading"><div><p class="creator-eyebrow">Admin workspace</p><h1>Users</h1><p>View registered accounts and their current roles.</p></div><button type="button" data-users-refresh>Refresh</button></header>
+      <form class="activity-filters" data-users-filters><label>Search <input name="query" type="search" maxlength="200" placeholder="Name or account ID" /></label><label>Role <select name="role"><option value="">All roles</option><option value="reader">Reader</option><option value="author">Author</option><option value="admin">Admin</option></select></label><button type="submit">Apply filters</button></form>
+      <p class="account-feed-message" data-users-message role="status" aria-live="polite">Loading users…</p>
+      <section class="admin-users-list" data-users-list aria-label="Users"></section>
+      <nav class="feed-pagination" aria-label="User pages"><button type="button" data-users-previous>Previous</button><span data-users-page>Page 1</span><button type="button" data-users-next>Next</button></nav>
+    </main>
+    <script src="script.js"></script><script src="admin-users.js"></script>
+  </body>
+</html>
