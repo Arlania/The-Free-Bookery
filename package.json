@@ -1,11 +1,18 @@
 {
   "scripts": {
     "start": "node backend/server.js",
-    "create-admin": "node backend/create-admin.js"
+    "cloudflare:dev": "wrangler dev",
+    "db:migrate:local": "wrangler d1 migrations apply free-book-nook --local",
+    "db:list:local": "wrangler d1 migrations list free-book-nook --local"
   },
   "dependencies": {
+    "better-auth": "^1.7.0",
     "better-sqlite3": "^13.0.1",
     "express": "^5.2.1",
-    "pdfjs-dist": "^6.1.200"
+    "pdfjs-dist": "^6.2.108"
+  },
+  "devDependencies": {
+    "auth": "^1.7.0",
+    "wrangler": "^4.123.0"
   }
 }

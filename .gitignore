@@ -1,5 +1,9 @@
 handoff.md
 .DS_Store
+node_modules/
+.wrangler/
+.dev.vars
+.env
 backend/database/auth.db
 backend/database/auth.db-shm
 backend/database/auth.db-wal

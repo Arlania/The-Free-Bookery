@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Activity | Free Bookery Admin</title>
+    <link rel="icon" type="image/png" href="assets/book-logo.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="account-feed-body">
+    <header class="site-header">
+      <nav class="nav-left" aria-label="Primary navigation"><a href="blog.html">Blog</a><a href="index.html#about">About Us</a></nav>
+      <a class="brand" href="index.html" aria-label="Free Bookery home">
+        <img src="assets/book-logo.png" alt="" class="brand-logo" />
+        <span>Free Bookery</span>
+      </a>
+      <nav class="nav-right" aria-label="Account navigation"><a href="donate.html">Donate</a><a href="index.html#signin" class="login-link">Login/Sign up</a><div class="user-menu" hidden><button class="user-button" type="button" aria-label="User account menu" aria-haspopup="true" aria-expanded="false"><span class="user-icon" aria-hidden="true"></span><span class="user-name">Free Bookery</span></button><div class="account-dropdown" role="menu"><a href="collections.html" role="menuitem">Collections</a><a href="creator-access.html" role="menuitem">Creator Access</a><a href="contact.html" role="menuitem">Contact Us</a><button class="logout-button" type="button" role="menuitem">Sign Out</button></div></div></nav>
+    </header>
+    <main class="account-feed-page">
+      <header class="account-feed-heading">
+        <div>
+          <p class="creator-eyebrow">Admin workspace</p>
+          <h1>Activity history</h1>
+          <p>A read-only record of review, publication, and account actions.</p>
+        </div>
+        <button type="button" data-activity-refresh>Refresh</button>
+      </header>
+      <form class="activity-filters" data-activity-filters>
+        <label>Search <input name="query" type="search" maxlength="200" placeholder="Action, target, or Admin" /></label>
+        <label>Action <select name="action"><option value="">All actions</option></select></label>
+        <label>Record type <select name="targetType"><option value="">All record types</option></select></label>
+        <button type="submit">Apply filters</button>
+      </form>
+      <p class="account-feed-message" data-activity-message role="status" aria-live="polite">Loading activity…</p>
+      <section class="activity-list" data-activity-list aria-label="Activity history"></section>
+      <nav class="feed-pagination" aria-label="Activity pages">
+        <button type="button" data-activity-previous>Previous</button>
+        <span data-activity-page>Page 1</span>
+        <button type="button" data-activity-next>Next</button>
+      </nav>
+    </main>
+    <script src="script.js"></script><script src="admin-activity.js"></script>
+  </body>
+</html>

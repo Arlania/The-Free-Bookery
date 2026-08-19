@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "the-free-book-nook",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-08-18",
+  "vars": {
+    "BETTER_AUTH_URL": "https://the-free-book-nook.liemilyrong.workers.dev",
+    "EMAIL_DELIVERY_MODE": "live",
+    "EMAIL_FROM": "Free Bookery <notifications@notifications.freebookery.org>",
+    "EMAIL_REPLY_TO": "info@freebookery.org"
+  },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "free-book-nook",
+      "database_id": "73e918e6-b9db-4f31-bea7-15d51afb25e2"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "PRIVATE_BOOK_FILES",
+      "bucket_name": "free-bookery-private-books"
+    }
+  ]
+}
