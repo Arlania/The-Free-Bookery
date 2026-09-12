@@ -505,6 +505,22 @@ function setupNotificationDrawer(bell) {
 function updateUserState() {
   const loggedIn = Boolean(currentAccount?.authenticated);
   const displayName = currentAccount?.name || currentAccount?.email || "Guest";
+  const showUploadBookNavigation = loggedIn &&
+    (currentAccount?.accountRole === "owner" || currentAccount?.role === "admin");
+
+  document.querySelectorAll(
+    '.nav-left a[data-upload-book-navigation], .nav-left a[href="#about"], .nav-left a[href="index.html#about"]'
+  ).forEach((link) => {
+    if (!link.dataset.defaultHref) link.dataset.defaultHref = link.getAttribute("href") || "index.html#about";
+    link.dataset.uploadBookNavigation = "";
+    if (showUploadBookNavigation) {
+      link.href = "creator-access.html";
+      link.textContent = "Upload Book";
+    } else {
+      link.setAttribute("href", link.dataset.defaultHref);
+      link.textContent = "About Us";
+    }
+  });
 
   document.querySelectorAll('a[href="#starred"]').forEach((link) => {
     link.remove();
@@ -1659,7 +1675,9 @@ saveBookForm?.addEventListener("submit", async (event) => {
 });
 
 function hasApprovedCreatorAccess() {
-  return currentAccount?.role === "author" || currentAccount?.role === "admin";
+  return currentAccount?.accountRole === "owner" ||
+    currentAccount?.role === "author" ||
+    currentAccount?.role === "admin";
 }
 
 function creatorApplicationIsEditable() {

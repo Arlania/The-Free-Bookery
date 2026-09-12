@@ -1,4 +1,4 @@
-import { requireRoles } from "./authorization.js";
+import { requireRolesOrOwner } from "./authorization.js";
 
 const editableStatuses = new Set(["draft", "changes_requested"]);
 const limits = {
@@ -202,7 +202,7 @@ async function changeAvailability(env, userId, id, action) {
 }
 
 export async function handleAuthorBookRequest(request, env, executionContext) {
-  const authorization = await requireRoles(request, env, ["author", "admin"], executionContext);
+  const authorization = await requireRolesOrOwner(request, env, ["author", "admin"], executionContext);
   if (authorization.response) return authorization.response;
   const userId = authorization.account.profile.user_id;
   const url = new URL(request.url);

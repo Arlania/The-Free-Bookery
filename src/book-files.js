@@ -1,4 +1,4 @@
-import { requireRoles } from "./authorization.js";
+import { requireRoles, requireRolesOrOwner } from "./authorization.js";
 
 const fileTypes = {
   manuscript: {
@@ -297,7 +297,7 @@ async function removeAuthorFile(request, env, account, bookId, kind) {
 }
 
 export async function handleAuthorBookFileRequest(request, env, executionContext) {
-  const authorization = await requireRoles(request, env, ["author", "admin"], executionContext);
+  const authorization = await requireRolesOrOwner(request, env, ["author", "admin"], executionContext);
   if (authorization.response) return authorization.response;
   const match = new URL(request.url).pathname.match(/^\/api\/author\/books\/([0-9a-f-]+)\/files\/(manuscript|cover)$/i);
   if (!match) return error("Not found.", 404);
