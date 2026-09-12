@@ -47,3 +47,12 @@ export async function requireRoles(request, env, allowedRoles, executionContext)
 
   return { account };
 }
+
+export async function requireOwner(request, env, executionContext) {
+  const account = await getAccountContext(request, env, executionContext);
+  if (!account) return { response: Response.json({ error: "Authentication required." }, { status: 401 }) };
+  if (account.accountRole !== "owner") {
+    return { response: Response.json({ error: "Owner access is required." }, { status: 403 }) };
+  }
+  return { account };
+}

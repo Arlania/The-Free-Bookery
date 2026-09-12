@@ -153,13 +153,9 @@
 
       <section class="blog-column newsletters" aria-labelledby="newsletters-title">
         <div class="blog-section-heading">
-          <h2 id="newsletters-title">Newsletters</h2>
+          <div class="blog-title-row"><h2 id="newsletters-title">Newsletters</h2><button class="newsletter-add-button" type="button" aria-label="Publish a newsletter" hidden data-newsletter-open>+</button></div>
         </div>
-        <div class="blog-column-content" aria-hidden="true">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
+        <div class="blog-column-content" data-newsletter-list></div>
       </section>
     </main>
 
@@ -214,6 +210,7 @@
         <p>&copy; 2026 Free Bookery. All rights reserved.</p>
       </div>
     </footer>
-    <script src="script.js?v=3"></script>
+    <div class="modal-overlay" id="newsletter-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="newsletter-modal-title"><div class="signin-modal content-modal"><button class="modal-close" type="button" aria-label="Close newsletter form">&times;</button><h2 id="newsletter-modal-title">New newsletter</h2><form class="content-publish-form" data-newsletter-form data-content-type="newsletter"><label>Title <input name="title" maxlength="220" required /></label><label>Summary <input name="summary" maxlength="500" /></label><label>Newsletter <textarea name="body" rows="10" maxlength="20000" required></textarea></label><p data-content-message role="status" aria-live="polite"></p><button type="submit">Publish newsletter</button></form></div></div>
+    <script src="script.js?v=4"></script><script src="blog-content.js"></script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-import { requireRoles } from "./authorization.js";
+import { requireOwner } from "./authorization.js";
 
 function safeJson(value) {
   if (!value) return null;
@@ -11,7 +11,7 @@ function cleanFilter(value, max = 100) {
 }
 
 export async function handleAdminActivityRequest(request, env, executionContext) {
-  const authorization = await requireRoles(request, env, ["admin"], executionContext);
+  const authorization = await requireOwner(request, env, executionContext);
   if (authorization.response) return authorization.response;
   if (request.method !== "GET") {
     return Response.json({ error: "Method not allowed." }, { status: 405 });

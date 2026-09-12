@@ -12,6 +12,7 @@ import { handleAdminActivityRequest } from "./admin-activity.js";
 import { handleAdminUsersRequest } from "./admin-users.js";
 import { handleReaderLibraryRequest } from "./reader-library.js";
 import { handleBookRequestWorkflow } from "./book-requests.js";
+import { handleContentRequest } from "./content.js";
 
 export default {
   async fetch(request, env, executionContext) {
@@ -101,6 +102,12 @@ export default {
 
     if (url.pathname.startsWith("/api/notifications")) {
       return handleNotificationRequest(request, env, executionContext);
+    }
+
+    if (url.pathname === "/api/content" || url.pathname === "/api/admin/content" ||
+        url.pathname.startsWith("/api/author/blog-submissions") ||
+        url.pathname.startsWith("/api/admin/blog-submissions")) {
+      return handleContentRequest(request, env, executionContext);
     }
 
     if (url.pathname.startsWith("/api/collections") || url.pathname.startsWith("/api/starred")) {

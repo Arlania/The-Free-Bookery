@@ -89,6 +89,13 @@ const creatorNextButton = document.querySelector("[data-creator-form-next]");
 const creatorBackButton = document.querySelector("[data-creator-form-back]");
 const creatorDraftButton = document.querySelector("[data-creator-form-draft]");
 const creatorSubmitButton = document.querySelector("[data-creator-form-submit]");
+const creatorContributors = document.querySelector("[data-creator-contributors]");
+const addCreatorContributorButton = document.querySelector("[data-add-contributor]");
+const creatorGenreInputs = Array.from(document.querySelectorAll('input[name="genre"]'));
+const creatorGenreCount = document.querySelector("[data-creator-genre-count]");
+const creatorOtherGenreChoice = document.querySelector("[data-other-genre-choice]");
+const creatorOtherGenreField = document.querySelector("[data-other-genre-field]");
+const creatorOtherGenreInput = creatorTitleForm?.elements.namedItem("otherGenre");
 const creatorApplicationStatus = document.querySelector(
   "[data-creator-application-status]"
 );
@@ -134,17 +141,8 @@ let bookBeingSaved = null;
 let saveBookTrigger = null;
 let homeRecentSearchesExpanded = false;
 let creatorFormStep = 1;
-const sessionHintKey = "freeBookNookSessionHint";
-function getSessionHint() {
-  try {
-    const hint = JSON.parse(localStorage.getItem(sessionHintKey) || "null");
-    return hint?.name && hint?.role ? hint : null;
-  } catch { return null; }
-}
-const sessionHint = getSessionHint();
-let currentAccount = sessionHint
-  ? { authenticated: true, name: sessionHint.name, role: sessionHint.role, unreadNotificationCount: sessionHint.unread || 0 }
-  : null;
+let currentAccount = null;
+let accountStateResolved = false;
 let creatorApplicationData = null;
 let creatorBooks = [];
 let activeCreatorBook = null;
@@ -174,27 +172,35 @@ if (modalSignupLink) {
   modalSignupLink.closest(".signup-prompt")?.after(forgotPasswordLink);
 }
 
-const signInPassword = signInModal?.querySelector('input[name="password"]');
-if (signInPassword) {
+function setupPasswordVisibilityToggle(passwordInput) {
+  if (!passwordInput || passwordInput.parentElement?.classList.contains("password-field")) return;
   const passwordField = document.createElement("div");
   passwordField.className = "password-field";
-  signInPassword.before(passwordField);
-  passwordField.append(signInPassword);
+  passwordInput.before(passwordField);
+  passwordField.append(passwordInput);
 
   const passwordToggle = document.createElement("button");
   passwordToggle.className = "password-visibility-toggle";
   passwordToggle.type = "button";
-  passwordToggle.setAttribute("aria-label", "Show password");
-  passwordToggle.setAttribute("aria-pressed", "false");
-  passwordToggle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.75"></circle></svg>';
+  const updateToggle = (showing) => {
+    passwordToggle.setAttribute("aria-label", showing ? "Hide password" : "Show password");
+    passwordToggle.setAttribute("aria-pressed", String(showing));
+    passwordToggle.title = showing ? "Hide password" : "Show password";
+    passwordToggle.innerHTML = showing
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.75"></circle><path d="m4 4 16 16"></path></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.75"></circle></svg>';
+  };
+  updateToggle(false);
   passwordToggle.addEventListener("click", () => {
-    const showing = signInPassword.type === "text";
-    signInPassword.type = showing ? "password" : "text";
-    passwordToggle.setAttribute("aria-label", showing ? "Show password" : "Hide password");
-    passwordToggle.setAttribute("aria-pressed", String(!showing));
+    const showing = passwordInput.type !== "text";
+    passwordInput.type = showing ? "text" : "password";
+    updateToggle(showing);
+    passwordInput.focus();
   });
   passwordField.append(passwordToggle);
 }
+
+document.querySelectorAll('input[type="password"]').forEach(setupPasswordVisibilityToggle);
 
 function getRecentSearches() {
   try {
@@ -359,7 +365,7 @@ blogFilterMenu?.addEventListener("click", (event) => {
     item.setAttribute("aria-pressed", String(item === option));
   });
 
-  blogPostCards.forEach((card) => {
+  document.querySelectorAll("[data-blog-category]").forEach((card) => {
     card.hidden =
       selectedCategory !== "all" &&
       card.dataset.blogCategory !== selectedCategory;
@@ -422,13 +428,12 @@ function notificationDestination(item) {
   }
   if (item.relatedRecordType === "author_application") return "creator-access.html";
   if (item.relatedRecordType === "book") return "creator-access.html";
+  if (item.relatedRecordType === "blog_submission") return "author-blog.html";
   return "notifications.html";
 }
 
 function updateNotificationBellCount(count) {
   if (currentAccount) currentAccount.unreadNotificationCount = Math.max(0, Number(count) || 0);
-  const hint = getSessionHint();
-  if (hint) localStorage.setItem(sessionHintKey, JSON.stringify({ ...hint, unread: Math.max(0, Number(count) || 0) }));
   document.querySelectorAll(".notification-bell").forEach((bell) => {
     bell.querySelector(".notification-badge")?.remove();
     if (count > 0) {
@@ -505,13 +510,8 @@ function updateUserState() {
     link.remove();
   });
 
-  if (loginLink) {
-    loginLink.hidden = loggedIn;
-  }
-
-  if (userMenu) {
-    userMenu.hidden = !loggedIn;
-  }
+  if (loginLink) loginLink.hidden = !accountStateResolved || loggedIn;
+  if (userMenu) userMenu.hidden = !accountStateResolved || !loggedIn;
 
   if (loggedIn && userName) {
     userName.textContent = displayName;
@@ -526,17 +526,23 @@ function updateUserState() {
         link.textContent = text;
         return link;
       };
+      const adminItems = [
+        makeMenuLink("admin-book-requests.html", "Book requests"),
+        makeMenuLink("admin-submissions.html", "Creator submissions"),
+        makeMenuLink("admin-content.html", "Blog submissions"),
+      ];
+      if (currentAccount.accountRole === "owner") {
+        adminItems.splice(2, 0,
+          makeMenuLink("admin-users.html", "Users"),
+          makeMenuLink("admin-activity.html", "Activity log"));
+      }
       const items = currentAccount.role === "admin"
-        ? [
-            makeMenuLink("admin-book-requests.html", "Book requests"),
-            makeMenuLink("admin-submissions.html", "Creator submissions"),
-            makeMenuLink("admin-users.html", "Users"),
-            makeMenuLink("admin-activity.html", "Activity log"),
-          ]
+        ? adminItems
         : [
             makeMenuLink("collections.html", "Collections"),
             makeMenuLink("creator-access.html", "Creator Access"),
             makeMenuLink("book-requests.html", "Request book"),
+            ...(currentAccount.role === "author" ? [makeMenuLink("author-blog.html", "Write blog")] : []),
             makeMenuLink("contact.html", "Contact Us"),
           ];
       dropdown.replaceChildren(...items, logoutButton);
@@ -627,11 +633,7 @@ function updateUserState() {
 
 function applyAuthenticatedSession(account) {
   currentAccount = account;
-  localStorage.setItem(sessionHintKey, JSON.stringify({
-    name: account.name || account.email,
-    role: account.role,
-    unread: Number(account.unreadNotificationCount || 0),
-  }));
+  accountStateResolved = true;
   updateUserState();
   renderCreatorDashboard();
 }
@@ -645,16 +647,15 @@ async function initializeServerSession() {
       applyAuthenticatedSession(await response.json());
     } else {
       currentAccount = null;
-      localStorage.removeItem(sessionHintKey);
+      accountStateResolved = true;
       updateUserState();
       renderCreatorDashboard();
     }
     await loadReaderLibrary();
     await initializeCreatorApplication();
   } catch {
-    currentAccount = getSessionHint()
-      ? { authenticated: true, ...getSessionHint(), unreadNotificationCount: getSessionHint().unread || 0 }
-      : null;
+    currentAccount = null;
+    accountStateResolved = true;
     updateUserState();
     renderCreatorDashboard();
     await loadReaderLibrary();
@@ -1278,7 +1279,7 @@ logoutButton?.addEventListener("click", async () => {
     // The local display is still cleared if the server is unavailable.
   }
   currentAccount = null;
-  localStorage.removeItem(sessionHintKey);
+  accountStateResolved = true;
   userMenu?.classList.remove("is-open");
   userButton?.setAttribute("aria-expanded", "false");
   updateUserState();
@@ -1876,7 +1877,7 @@ function renderCreatorDashboard() {
 
 function updateCreatorFormStep(step) {
   if (!creatorTitleForm) return;
-  creatorFormStep = Math.min(3, Math.max(1, step));
+  creatorFormStep = Math.min(4, Math.max(1, step));
 
   creatorTitleForm.querySelectorAll("[data-creator-step]").forEach((panel) => {
     panel.hidden = Number(panel.dataset.creatorStep) !== creatorFormStep;
@@ -1889,11 +1890,14 @@ function updateCreatorFormStep(step) {
   });
 
   if (creatorBackButton) creatorBackButton.hidden = creatorFormStep === 1;
-  if (creatorNextButton) creatorNextButton.hidden = creatorFormStep === 3;
-  if (creatorSubmitButton) creatorSubmitButton.hidden = creatorFormStep !== 3;
+  if (creatorNextButton) creatorNextButton.hidden = creatorFormStep === 4;
+  if (creatorSubmitButton) creatorSubmitButton.hidden = creatorFormStep !== 4;
 
-  if (creatorFormStep === 3) renderCreatorReview();
+  if (creatorFormStep === 4) renderCreatorReview();
   if (creatorFormMessage) creatorFormMessage.textContent = "";
+  requestAnimationFrame(() => {
+    creatorTitleModal?.scrollTo({ top: 0, behavior: "auto" });
+  });
 }
 
 function setCreatorTitleModal(open) {
@@ -1930,12 +1934,86 @@ function setCreatorField(name, value) {
   }
 }
 
+function splitCreatorName(name = "") {
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return [parts[0] || "", ""];
+  return [parts.slice(0, -1).join(" "), parts.at(-1)];
+}
+
+function addCreatorContributor(value = "") {
+  if (!creatorContributors || creatorContributors.childElementCount >= 9) return;
+  const match = String(value).match(/^([^:]+):\s*(.*)$/);
+  const roleValue = match ? match[1].trim() : "Author";
+  const contributorRoles = ["Author", "Editor", "Illustrator", "Translator", "Other"];
+  const selectedRole = contributorRoles.includes(roleValue) ? roleValue : "Other";
+  const [firstName, lastName] = splitCreatorName(match ? match[2] : value);
+  const row = document.createElement("div");
+  row.className = "creator-contributor-row";
+  row.innerHTML = `
+    <label>Role<select data-contributor-role>
+      ${contributorRoles.map((role) => `<option${role === selectedRole ? " selected" : ""}>${role}</option>`).join("")}
+    </select></label>
+    <label>First name<input type="text" data-contributor-first></label>
+    <label>Last name<input type="text" data-contributor-last></label>
+    <button type="button" aria-label="Remove contributor">Remove</button>
+    <label class="creator-contributor-role-other" data-contributor-other-field hidden>Specify role<input type="text" maxlength="80" data-contributor-other-role placeholder="Enter contributor role"></label>`;
+  row.querySelector("[data-contributor-first]").value = firstName;
+  row.querySelector("[data-contributor-last]").value = lastName;
+  const roleSelect = row.querySelector("[data-contributor-role]");
+  const otherRoleField = row.querySelector("[data-contributor-other-field]");
+  const otherRoleInput = row.querySelector("[data-contributor-other-role]");
+  const updateOtherRole = () => {
+    const isOther = roleSelect.value === "Other";
+    otherRoleField.hidden = !isOther;
+    otherRoleInput.required = isOther;
+    if (!isOther) otherRoleInput.value = "";
+  };
+  if (selectedRole === "Other" && roleValue !== "Other") otherRoleInput.value = roleValue;
+  roleSelect.addEventListener("change", updateOtherRole);
+  updateOtherRole();
+  row.querySelector("button").addEventListener("click", () => row.remove());
+  creatorContributors.append(row);
+}
+
+function creatorContributorValue() {
+  return Array.from(creatorContributors?.children || []).map((row) => {
+    const selectedRole = row.querySelector("[data-contributor-role]")?.value || "Author";
+    const role = selectedRole === "Other"
+      ? String(row.querySelector("[data-contributor-other-role]")?.value || "Other").trim()
+      : selectedRole;
+    const name = [row.querySelector("[data-contributor-first]")?.value, row.querySelector("[data-contributor-last]")?.value]
+      .map((part) => String(part || "").trim()).filter(Boolean).join(" ");
+    return name ? `${role}: ${name}` : "";
+  }).filter(Boolean).join("; ");
+}
+
+function updateCreatorGenreState() {
+  const selected = creatorGenreInputs.filter((input) => input.checked);
+  creatorGenreInputs.forEach((input) => { input.disabled = selected.length >= 3 && !input.checked; });
+  const otherSelected = Boolean(creatorOtherGenreChoice?.checked);
+  if (creatorOtherGenreField) creatorOtherGenreField.hidden = !otherSelected;
+  if (creatorOtherGenreInput) {
+    creatorOtherGenreInput.disabled = !otherSelected;
+    creatorOtherGenreInput.required = otherSelected;
+    if (!otherSelected) creatorOtherGenreInput.value = "";
+  }
+  if (creatorGenreCount) creatorGenreCount.textContent = `${selected.length} of 3 selected`;
+  creatorGenreInputs[0]?.setCustomValidity(selected.length ? "" : "Choose at least one book genre.");
+}
+
+addCreatorContributorButton?.addEventListener("click", () => addCreatorContributor());
+creatorGenreInputs.forEach((input) => input.addEventListener("change", updateCreatorGenreState));
+
 function populateCreatorForm() {
   if (!creatorTitleForm) return;
   creatorTitleForm.reset();
+  if (creatorContributors) creatorContributors.replaceChildren();
   const application = creatorApplicationData?.application;
   const book = hasApprovedCreatorAccess() ? activeCreatorBook : creatorApplicationData?.book;
-  if (!book) return;
+  if (!book) {
+    updateCreatorGenreState();
+    return;
+  }
 
   if (application) {
     setCreatorField("creatorType", application.creatorType);
@@ -1945,17 +2023,24 @@ function populateCreatorForm() {
     setCreatorField("website", application.website);
     setCreatorField("verificationDetails", application.verificationDetails);
   }
-  setCreatorField("rights", application ? application.rightsConfirmation : book.rightsConfirmation);
+  setCreatorField("rights", (application ? application.rightsConfirmation : book.rightsConfirmation) ? "copyright" : "");
   setCreatorField("title", book.title);
   setCreatorField("subtitle", book.subtitle);
   setCreatorField("language", book.language);
   setCreatorField("isbn", book.isbn);
   setCreatorField("series", book.series);
   setCreatorField("edition", book.edition);
-  setCreatorField("author", book.author);
-  setCreatorField("contributors", book.contributors);
+  const [authorFirstName, authorLastName] = splitCreatorName(book.author);
+  setCreatorField("authorFirstName", authorFirstName);
+  setCreatorField("authorLastName", authorLastName);
+  String(book.contributors || "").split(/;|,(?=\s*(?:Author|Editor|Illustrator|Translator|Other)\s*:)/).map((item) => item.trim()).filter(Boolean).forEach(addCreatorContributor);
   setCreatorField("description", book.description);
-  setCreatorField("categories", book.categories);
+  const savedGenres = String(book.categories || "").split(",").map((genre) => genre.trim()).filter(Boolean);
+  const standardGenres = creatorGenreInputs.filter((input) => input.value !== "Other").map((input) => input.value);
+  const customGenre = savedGenres.find((genre) => !standardGenres.includes(genre));
+  creatorGenreInputs.forEach((input) => { input.checked = input.value === "Other" ? Boolean(customGenre) : savedGenres.includes(input.value); });
+  if (creatorOtherGenreInput) creatorOtherGenreInput.value = customGenre || "";
+  updateCreatorGenreState();
   setCreatorField("keywords", book.keywords);
   setCreatorField("readingAge", book.readingAge);
   setCreatorField("explicit", book.explicit ? "yes" : "no");
@@ -2052,6 +2137,8 @@ function creatorStepIsValid() {
   );
   const fields = currentPanel?.querySelectorAll("input, select, textarea") || [];
 
+  if (creatorFormStep === 2) updateCreatorGenreState();
+
   for (const field of fields) {
     if (!field.checkValidity()) {
       field.reportValidity();
@@ -2076,25 +2163,25 @@ function getCreatorFormData() {
       verificationDetails: String(
         formData.get("verificationDetails") || ""
       ).trim(),
-      rightsConfirmation: formData.get("rights") === "on",
+      rightsConfirmation: Boolean(formData.get("rights")),
     },
     book: {
       title: String(formData.get("title") || "").trim(),
       subtitle: String(formData.get("subtitle") || "").trim(),
-      author: String(formData.get("author") || "").trim(),
+      author: [formData.get("authorFirstName"), formData.get("authorLastName")].map((part) => String(part || "").trim()).filter(Boolean).join(" "),
       language: String(formData.get("language") || "English"),
       isbn: String(formData.get("isbn") || "").trim(),
       series: String(formData.get("series") || "").trim(),
       edition: String(formData.get("edition") || "").trim(),
-      contributors: String(formData.get("contributors") || "").trim(),
+      contributors: creatorContributorValue(),
       description: String(formData.get("description") || "").trim(),
-      categories: String(formData.get("categories") || "").trim(),
+      categories: creatorGenreInputs.filter((input) => input.checked).map((input) => input.value === "Other" ? String(creatorOtherGenreInput?.value || "").trim() : input.value).filter(Boolean).join(", "),
       keywords: String(formData.get("keywords") || "").trim(),
       readingAge: String(formData.get("readingAge") || "").trim(),
       explicit: String(formData.get("explicit") || "no") === "yes",
       territories: String(formData.get("territories") || "Worldwide"),
       accessibility: String(formData.get("accessibility") || "").trim(),
-      rightsConfirmation: formData.get("rights") === "on",
+      rightsConfirmation: Boolean(formData.get("rights")),
       manuscriptName: manuscript?.name || activeCreatorBook?.manuscript?.name || creatorApplicationData?.book?.manuscript?.name || "",
       coverName: cover?.name || activeCreatorBook?.cover?.name || creatorApplicationData?.book?.cover?.name || "",
     },

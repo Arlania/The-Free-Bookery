@@ -79,8 +79,8 @@ async function load() {
     const accountResponse = await fetch("/api/account");
     if (accountResponse.status === 401) { location.href = "index.html?login=1"; return; }
     const account = await accountResponse.json();
-    if (!accountResponse.ok || account.role !== "admin") {
-      message.textContent = "Admin access is required.";
+    if (!accountResponse.ok || account.accountRole !== "owner") {
+      message.textContent = "Owner access is required.";
       list.replaceChildren();
       return;
     }
