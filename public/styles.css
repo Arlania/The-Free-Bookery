@@ -4972,6 +4972,23 @@ img, svg, video, canvas { max-width: 100%; }
   background: #f7f2e7;
 }
 
+.admin-upload-page {
+  min-height: 100vh;
+  background: var(--paper);
+}
+
+.admin-upload-loading,
+.admin-upload-message {
+  width: min(760px, calc(100% - 40px));
+  margin: 72px auto;
+  border: 1px solid rgba(16, 11, 43, 0.14);
+  border-radius: 12px;
+  padding: 28px;
+  background: rgba(255, 255, 255, 0.54);
+  color: var(--ink);
+  text-align: center;
+}
+
 .creator-dashboard-header,
 .creator-library-heading {
   display: flex;
