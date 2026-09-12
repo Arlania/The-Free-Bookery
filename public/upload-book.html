@@ -3,23 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Upload and manage Free Bookery titles." />
+    <meta name="description" content="Upload a book to the Free Bookery catalog." />
     <title>Upload Book | Free Bookery</title>
     <link rel="icon" type="image/png" href="assets/book-logo.png" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body class="admin-upload-page" data-admin-upload-page>
+  <body class="admin-book-upload-body">
     <header class="site-header">
       <nav class="nav-left" aria-label="Primary navigation">
         <a href="blog.html">Blog</a>
         <a href="index.html#about" data-upload-book-navigation>About Us</a>
       </nav>
-
       <a class="brand" href="index.html" aria-label="Free Bookery home">
         <img src="assets/book-logo.png" alt="" class="brand-logo" />
         <span>Free Bookery</span>
       </a>
-
       <nav class="nav-right" aria-label="Account navigation">
         <a href="donate.html">Donate</a>
         <a href="index.html?login=1" class="login-link">Login/Sign up</a>
@@ -35,11 +33,60 @@
       </nav>
     </header>
 
-    <div data-upload-workspace>
-      <p class="admin-upload-loading" data-upload-loading>Loading the upload workspace…</p>
-      <p class="admin-upload-message" data-admin-upload-message hidden></p>
-    </div>
+    <main class="admin-book-upload-page">
+      <header class="admin-book-upload-heading">
+        <p class="creator-eyebrow">Owner &amp; Admin workspace</p>
+        <h1>Upload Book</h1>
+        <p>Add a complete title directly to the Free Bookery catalog.</p>
+      </header>
 
+      <p class="admin-upload-message" data-admin-upload-access role="status">Checking access…</p>
+
+      <form class="admin-book-upload-form" data-admin-book-upload hidden>
+        <section aria-labelledby="admin-book-details-title">
+          <h2 id="admin-book-details-title">Book details</h2>
+          <div class="admin-book-upload-grid">
+            <label>Book title <b aria-label="required">*</b><input name="title" maxlength="300" required /></label>
+            <label>Subtitle <input name="subtitle" maxlength="300" /></label>
+            <label>Author <b aria-label="required">*</b><input name="author" maxlength="300" required /></label>
+            <label>Contributors <input name="contributors" maxlength="1000" placeholder="Editors, illustrators, translators…" /></label>
+            <label class="admin-book-upload-wide">简介 / Description <b aria-label="required">*</b><textarea name="description" rows="6" maxlength="4000" required></textarea></label>
+            <label>Genre or category <b aria-label="required">*</b><input name="categories" maxlength="500" placeholder="Fiction, History, Poetry…" required /></label>
+            <label>Language <b aria-label="required">*</b><input name="language" maxlength="80" value="English" required /></label>
+            <label>ISBN <input name="isbn" maxlength="40" /></label>
+            <label>DOI <input name="doi" maxlength="160" /></label>
+            <label>Availability <select name="territories"><option value="Worldwide">Worldwide</option><option value="Selected territories">Selected territories</option></select></label>
+            <label>Accessibility notes <input name="accessibility" maxlength="1000" placeholder="Image descriptions, accessible edition…" /></label>
+          </div>
+        </section>
+
+        <section aria-labelledby="admin-book-files-title">
+          <h2 id="admin-book-files-title">Files</h2>
+          <div class="admin-book-file-grid">
+            <label>
+              <strong>Book file <b aria-label="required">*</b></strong>
+              <span>PDF or EPUB · maximum 95 MB</span>
+              <input name="manuscript" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" required />
+            </label>
+            <label>
+              <strong>Cover image <b aria-label="required">*</b></strong>
+              <span>JPG or PNG · maximum 10 MB</span>
+              <input name="cover" type="file" accept="image/jpeg,image/png" required />
+            </label>
+          </div>
+        </section>
+
+        <label class="admin-book-rights">
+          <input name="rights" type="checkbox" required />
+          <span>I confirm that Free Bookery has the rights or permission required to distribute this book. <b aria-label="required">*</b></span>
+        </label>
+
+        <p class="admin-book-upload-status" data-admin-book-upload-status role="status" aria-live="polite"></p>
+        <button class="admin-book-upload-submit" type="submit">Upload and publish book</button>
+      </form>
+    </main>
+
+    <script src="script.js"></script>
     <script src="upload-book.js"></script>
   </body>
 </html>

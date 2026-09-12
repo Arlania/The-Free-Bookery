@@ -13,7 +13,9 @@ function serializeBook(row) {
     format: row.manuscript_content_type === "application/epub+zip" ? "epub" : "pdf",
     isbn: row.isbn,
     doi: row.doi,
-    cover_url: row.public_cover_url,
+    cover_url: row.public_cover_url || (row.cover_object_key
+      ? `/api/books/${encodeURIComponent(row.id)}/cover`
+      : null),
     has_file: row.book_object_key ? 1 : 0,
   };
 }
@@ -25,7 +27,7 @@ async function searchBooks(request, env) {
   const value = `%${query}%`;
   const result = await env.DB.prepare(
     `SELECT id, title, author_name, description, manuscript_content_type,
-            isbn, doi, public_cover_url, book_object_key
+            isbn, doi, public_cover_url, book_object_key, cover_object_key
      FROM books
      WHERE status = 'approved'
        AND (title LIKE ? OR author_name LIKE ? OR isbn LIKE ? OR doi LIKE ?)
@@ -39,7 +41,8 @@ async function findApprovedBook(env, id) {
   return env.DB.prepare(
     `SELECT id, title, author_name, description, manuscript_content_type,
             manuscript_original_name, isbn, doi, public_cover_url,
-            book_object_key
+            book_object_key, cover_object_key, cover_content_type,
+            cover_original_name
      FROM books WHERE id = ? AND status = 'approved' LIMIT 1`
   ).bind(id).first();
 }
@@ -79,17 +82,31 @@ async function readBook(request, env, executionContext, id) {
   return new Response(object.body, { status: rangeRequested ? 206 : 200, headers });
 }
 
+async function getBookCover(request, env, id) {
+  const book = await findApprovedBook(env, id);
+  if (!book?.cover_object_key) return error("Book cover not found.", 404);
+  const object = await env.PRIVATE_BOOK_FILES.get(book.cover_object_key);
+  if (!object) return error("Book cover not found.", 404);
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("Content-Type", book.cover_content_type || "image/jpeg");
+  headers.set("Cache-Control", "public, max-age=3600");
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("ETag", object.httpEtag);
+  return new Response(object.body, { headers });
+}
+
 export async function handleBookRequest(request, env, executionContext) {
   const url = new URL(request.url);
   if (url.pathname === "/api/books/search" && request.method === "GET") {
     return searchBooks(request, env);
   }
-  const match = url.pathname.match(/^\/api\/books\/([^/]+)(\/read)?$/);
+  const match = url.pathname.match(/^\/api\/books\/([^/]+)(\/(read|cover))?$/);
   if (!match) return error("Not found.", 404);
   if (request.method !== "GET") return error("Method not allowed.", 405);
   const id = decodeURIComponent(match[1]);
   if (!id || id.length > 100) return error("Book not found.", 404);
-  return match[2]
-    ? readBook(request, env, executionContext, id)
-    : getBook(env, id);
+  if (match[3] === "read") return readBook(request, env, executionContext, id);
+  if (match[3] === "cover") return getBookCover(request, env, id);
+  return getBook(env, id);
 }

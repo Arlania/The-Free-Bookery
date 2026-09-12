@@ -13,6 +13,7 @@ import { handleAdminUsersRequest } from "./admin-users.js";
 import { handleReaderLibraryRequest } from "./reader-library.js";
 import { handleBookRequestWorkflow } from "./book-requests.js";
 import { handleContentRequest } from "./content.js";
+import { handleAdminBookRequest } from "./admin-books.js";
 
 export default {
   async fetch(request, env, executionContext) {
@@ -86,6 +87,10 @@ export default {
 
     if (url.pathname.startsWith("/api/admin/submissions")) {
       return handleAdminSubmissionRequest(request, env, executionContext);
+    }
+
+    if (url.pathname.startsWith("/api/admin/books/")) {
+      return handleAdminBookRequest(request, env, executionContext);
     }
 
     if (url.pathname.startsWith("/api/admin/activity")) {

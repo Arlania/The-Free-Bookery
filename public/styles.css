@@ -4972,12 +4972,38 @@ img, svg, video, canvas { max-width: 100%; }
   background: #f7f2e7;
 }
 
-.admin-upload-page {
+.admin-book-upload-body {
   min-height: 100vh;
   background: var(--paper);
 }
 
-.admin-upload-loading,
+.admin-book-upload-page {
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: clamp(50px, 7vw, 90px) 0 100px;
+}
+
+.admin-book-upload-heading {
+  margin-bottom: 38px;
+}
+
+.admin-book-upload-heading h1 {
+  margin: 8px 0 12px;
+  color: var(--ink);
+  font-size: clamp(3.2rem, 7vw, 6rem);
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+}
+
+.admin-book-upload-heading > p:last-child {
+  max-width: 650px;
+  margin: 0;
+  color: var(--muted-text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.08rem;
+  line-height: 1.6;
+}
+
 .admin-upload-message {
   width: min(760px, calc(100% - 40px));
   margin: 72px auto;
@@ -4987,6 +5013,149 @@ img, svg, video, canvas { max-width: 100%; }
   background: rgba(255, 255, 255, 0.54);
   color: var(--ink);
   text-align: center;
+}
+
+.admin-book-upload-form {
+  display: grid;
+  gap: 28px;
+}
+
+.admin-book-upload-form[hidden] {
+  display: none;
+}
+
+.admin-book-upload-form > section {
+  border: 1px solid rgba(16, 11, 43, 0.14);
+  border-radius: 14px;
+  padding: clamp(22px, 4vw, 38px);
+  background: #fffaf0;
+  box-shadow: 0 18px 50px rgba(16, 11, 43, 0.06);
+}
+
+.admin-book-upload-form h2 {
+  margin: 0 0 24px;
+  color: var(--ink);
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+}
+
+.admin-book-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.admin-book-upload-grid label {
+  display: block;
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.admin-book-upload-wide {
+  grid-column: 1 / -1;
+}
+
+.admin-book-upload-grid input,
+.admin-book-upload-grid textarea,
+.admin-book-upload-grid select {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid rgba(16, 11, 43, 0.24);
+  border-radius: 9px;
+  padding: 12px 13px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.admin-book-upload-grid textarea {
+  resize: vertical;
+}
+
+.admin-book-upload-form b {
+  color: #a53b3b;
+}
+
+.admin-book-file-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.admin-book-file-grid label {
+  display: grid;
+  gap: 9px;
+  min-height: 150px;
+  border: 1px dashed rgba(16, 11, 43, 0.28);
+  border-radius: 12px;
+  padding: 22px;
+  background: rgba(16, 11, 43, 0.025);
+  color: var(--ink);
+}
+
+.admin-book-file-grid span {
+  color: var(--muted-text);
+  font-size: 0.88rem;
+}
+
+.admin-book-file-grid input {
+  align-self: end;
+  width: 100%;
+}
+
+.admin-book-rights {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.admin-book-rights input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.admin-book-upload-status {
+  min-height: 1.5em;
+  margin: 0;
+  color: var(--muted-text);
+  text-align: center;
+}
+
+.admin-book-upload-status a {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.admin-book-upload-submit {
+  justify-self: center;
+  min-width: 250px;
+  border: 0;
+  border-radius: 10px;
+  padding: 14px 22px;
+  background: var(--ink);
+  color: var(--paper);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.admin-book-upload-submit:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+@media (max-width: 720px) {
+  .admin-book-upload-grid,
+  .admin-book-file-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-book-upload-wide {
+    grid-column: 1;
+  }
 }
 
 .creator-dashboard-header,

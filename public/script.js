@@ -78,8 +78,6 @@ const newCollectionInput = document.querySelector(
 );
 const saveBookMessage = document.querySelector(".save-book-message");
 const creatorPublicPage = document.querySelector(".creator-access-page");
-const adminUploadPage = document.querySelector("[data-admin-upload-page]");
-const adminUploadMessage = document.querySelector("[data-admin-upload-message]");
 const creatorDashboard = document.querySelector("[data-creator-dashboard]");
 const creatorTitleGrid = document.querySelector("[data-creator-title-grid]");
 const creatorEmptyLibrary = document.querySelector("[data-creator-empty-library]");
@@ -1682,10 +1680,6 @@ function hasApprovedCreatorAccess() {
     currentAccount?.role === "admin";
 }
 
-function hasAdminBookUploadAccess() {
-  return currentAccount?.accountRole === "owner" || currentAccount?.role === "admin";
-}
-
 function creatorApplicationIsEditable() {
   return ["draft", "changes_requested"].includes(
     creatorApplicationData?.application?.status
@@ -1760,13 +1754,8 @@ function renderCreatorApplicationStatus() {
 }
 
 async function initializeCreatorApplication() {
-  if (!creatorPublicPage && !adminUploadPage) return;
+  if (!creatorPublicPage) return;
   creatorApplicationData = null;
-
-  if (adminUploadPage && !hasAdminBookUploadAccess()) {
-    renderCreatorDashboard();
-    return;
-  }
 
   if (currentAccount && !hasApprovedCreatorAccess()) {
     try {
@@ -1798,21 +1787,14 @@ async function ensureCreatorApplication() {
 }
 
 function renderCreatorDashboard() {
-  if (!creatorDashboard) return;
+  if (!creatorPublicPage || !creatorDashboard) return;
 
   const approved = hasApprovedCreatorAccess();
-  const pageAllowed = !adminUploadPage || hasAdminBookUploadAccess();
-  if (creatorPublicPage) creatorPublicPage.hidden = approved;
-  creatorDashboard.hidden = !approved || !pageAllowed;
-  if (adminUploadMessage) {
-    adminUploadMessage.hidden = pageAllowed;
-    adminUploadMessage.textContent = currentAccount
-      ? "Owner or Admin access is required to upload books here."
-      : "Sign in with an Owner or Admin account to upload books.";
-  }
+  creatorPublicPage.hidden = approved;
+  creatorDashboard.hidden = !approved;
   renderCreatorApplicationStatus();
 
-  if (!approved || !pageAllowed || !creatorTitleGrid || !creatorEmptyLibrary) return;
+  if (!approved || !creatorTitleGrid || !creatorEmptyLibrary) return;
 
   const titles = creatorBooks;
   creatorTitleGrid.replaceChildren();
