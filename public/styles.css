@@ -1077,16 +1077,20 @@ body {
   position: absolute;
   top: 5px;
   right: 6px;
+  z-index: 1;
   display: grid;
   width: 36px;
+  min-width: 36px;
   height: 36px;
+  min-height: 36px;
   padding: 8px;
   place-items: center;
   border: 0;
   border-radius: 5px;
-  background: transparent;
+  background: rgba(247, 242, 231, 0.1);
   color: rgba(247, 242, 231, 0.78);
   cursor: pointer;
+  line-height: 1;
 }
 
 .password-visibility-toggle:hover,
@@ -1096,11 +1100,46 @@ body {
 }
 
 .password-visibility-toggle svg {
+  display: block;
   width: 21px;
   height: 21px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.7;
+}
+
+.password-field:has(input:-webkit-autofill) .password-visibility-toggle {
+  background: rgba(16, 11, 43, 0.08);
+  color: #100b2b;
+}
+
+.owner-user-form .password-field {
+  display: block;
+}
+
+.owner-user-form button.password-visibility-toggle {
+  grid-column: auto;
+  justify-self: auto;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 8px;
+  border-radius: 5px;
+  background: transparent;
+  color: #100b2b;
+}
+
+.owner-user-form button.password-visibility-toggle:hover,
+.owner-user-form button.password-visibility-toggle:focus-visible {
+  background: rgba(16, 11, 43, 0.16);
+  color: #100b2b;
+}
+
+.owner-user-form button.password-visibility-toggle svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2;
 }
 
 .signup-prompt {
