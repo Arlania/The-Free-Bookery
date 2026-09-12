@@ -1,4 +1,4 @@
-import { requireRoles } from "./authorization.js";
+import { requireRolesOrOwner } from "./authorization.js";
 import { queueTransactionalEmail } from "./email.js";
 
 const decisions = new Set(["approve", "request_changes", "reject"]);
@@ -9,41 +9,26 @@ function error(message, status) {
 
 export function buildCreatorReviewEmail(row, decision, baseUrl) {
   const creatorUrl = new URL("/creator-access.html", baseUrl).toString();
-  const bookTitle = row.title || "your first book";
-
-  if (decision === "approve") {
-    return {
-      type: "creator-application-approved",
-      to: row.email,
-      subject: "Your Free Bookery Creator Access was approved",
-      heading: "Welcome to Creator Access",
-      message: row.admin_message
-        ? `Your application and “${bookTitle}” were approved. Message from our review team: ${row.admin_message}`
-        : `Your application and “${bookTitle}” were approved. You can now open your Author workspace and publish with Free Bookery.`,
-      actionLabel: "Open Creator Access",
-      actionUrl: creatorUrl,
-    };
-  }
-
-  if (decision === "request_changes") {
-    return {
-      type: "creator-application-changes-requested",
-      to: row.email,
-      subject: "Changes requested for your Free Bookery application",
-      heading: "Please update your Creator application",
-      message: `Our review team requested changes to your application and “${bookTitle}”: ${row.admin_message}`,
-      actionLabel: "Review requested changes",
-      actionUrl: creatorUrl,
-    };
-  }
-
+  const approved = decision === "approve";
+  const changes = decision === "request_changes";
   return {
-    type: "creator-application-rejected",
+    type: approved ? "creator-application-approved" : changes
+      ? "creator-application-changes-requested" : "creator-application-rejected",
     to: row.email,
-    subject: "Update on your Free Bookery Creator application",
-    heading: "Your Creator application was not approved",
-    message: `Our review team could not approve your application and “${bookTitle}”: ${row.admin_message}`,
-    actionLabel: "View application details",
+    subject: approved
+      ? "Your Free Bookery Author application was approved"
+      : changes ? "Changes requested for your Free Bookery Author application"
+        : "Your Free Bookery Author application was not approved",
+    heading: approved ? "Welcome to Creator Access" : changes
+      ? "Please update your Author application" : "Author application not approved",
+    message: approved
+      ? (row.admin_message
+        ? `Your Author application was approved. Message from our review team: ${row.admin_message}`
+        : "Your Author application was approved. You can now use Creator Access to submit books for review.")
+      : changes
+        ? `Our review team requested changes to your Author application: ${row.admin_message}`
+        : `Your Author application was not approved, so its first-book submission was automatically withdrawn: ${row.admin_message}`,
+    actionLabel: approved ? "Open Creator Access" : "View application",
     actionUrl: creatorUrl,
   };
 }
@@ -58,12 +43,15 @@ function buildBookReviewEmail(row, decision, baseUrl) {
     to: row.email,
     subject: approved
       ? `“${title}” was approved by Free Bookery`
-      : changes ? `Changes requested for “${title}”` : `Update on “${title}”`,
-    heading: approved ? "Your book is live" : changes ? "Please update your book submission" : "Your book was not approved",
+      : changes ? `Changes requested for “${title}”` : `“${title}” was not approved`,
+    heading: approved ? "Your book is live" : changes
+      ? "Please update your book submission" : "Book submission not approved",
     message: approved
-      ? (row.admin_message ? `“${title}” was approved. Message from our review team: ${row.admin_message}` : `“${title}” was approved and is now in the Free Bookery catalog.`)
-      : `Our review team ${changes ? "requested changes to" : "could not approve"} “${title}”: ${row.admin_message}`,
-    actionLabel: "Open Author workspace",
+      ? (row.admin_message
+        ? `“${title}” is now live. Message from our review team: ${row.admin_message}`
+        : `“${title}” is now searchable and readable in the Free Bookery catalog.`)
+      : `Our review team ${changes ? "requested changes to" : "did not approve"} “${title}”: ${row.admin_message}`,
+    actionLabel: "Open Creator Access",
     actionUrl: creatorUrl,
   };
 }
@@ -85,48 +73,42 @@ async function readDecision(request) {
   const raw = await request.text();
   if (raw.length > 5000) throw error("Request is too large.", 413);
   let body;
-  try {
-    body = JSON.parse(raw || "{}");
-  } catch {
-    throw error("Invalid JSON.", 400);
-  }
+  try { body = JSON.parse(raw || "{}"); }
+  catch { throw error("Invalid JSON.", 400); }
   const decision = String(body.decision || "");
   const message = String(body.message || "").trim();
   if (!decisions.has(decision)) throw error("Invalid review decision.", 400);
   if (message.length > 2000) throw error("Review message is too long.", 400);
   if (decision !== "approve" && !message) {
-    throw error("A message is required for this decision.", 400);
+    throw error("A message is required for changes or rejection.", 400);
   }
   return { decision, message };
 }
 
-const reviewSelect = `SELECT
+const authorSelect = `SELECT
   a.id, a.user_id, a.creator_type, a.status, a.legal_name, a.pen_name,
   a.biography, a.website, a.verification_details, a.rights_confirmation,
   a.submitted_at, a.reviewed_at, a.admin_message,
   u.email, p.display_name, p.role,
-  b.id AS book_id, b.status AS book_status, b.title, b.subtitle, b.language,
-  b.isbn, b.series_name, b.edition, b.author_name, b.contributors,
-  b.description, b.categories, b.keywords, b.reading_age,
-  b.explicit_content, b.territories, b.accessibility_notes
-  , b.book_object_key, b.manuscript_original_name, b.manuscript_content_type,
-  b.manuscript_size, b.manuscript_uploaded_at, b.cover_object_key,
-  b.cover_original_name, b.cover_content_type, b.cover_size, b.cover_uploaded_at
+  b.id AS first_book_id, b.title AS first_book_title, b.status AS first_book_status
 FROM author_applications a
 JOIN profiles p ON p.user_id = a.user_id
 JOIN "user" u ON u.id = a.user_id
 LEFT JOIN books b ON b.application_id = a.id`;
 
-const bookReviewSelect = `SELECT b.*, u.email, p.display_name, p.role
+const bookSelect = `SELECT b.*, u.email, p.display_name, p.role,
+  a.status AS author_application_status, a.legal_name, a.pen_name
 FROM books b
 JOIN profiles p ON p.user_id = b.owner_user_id
-JOIN "user" u ON u.id = b.owner_user_id`;
+JOIN "user" u ON u.id = b.owner_user_id
+LEFT JOIN author_applications a ON a.id = b.application_id`;
 
-function serialize(row) {
+function serializeAuthor(row) {
   return {
-    kind: "creator_application",
     id: row.id,
+    kind: "author",
     status: row.status,
+    submittedAt: row.submitted_at,
     applicant: {
       userId: row.user_id,
       accountName: row.display_name,
@@ -140,46 +122,16 @@ function serialize(row) {
       verificationDetails: row.verification_details || "",
       rightsConfirmation: row.rights_confirmation === 1,
     },
-    book: row.book_id ? {
-      id: row.book_id,
-      status: row.book_status,
-      title: row.title || "",
-      subtitle: row.subtitle || "",
-      language: row.language || "English",
-      isbn: row.isbn || "",
-      series: row.series_name || "",
-      edition: row.edition || "",
-      author: row.author_name || "",
-      contributors: row.contributors || "",
-      description: row.description || "",
-      categories: row.categories || "",
-      keywords: row.keywords || "",
-      readingAge: row.reading_age || "",
-      explicit: row.explicit_content === 1,
-      territories: row.territories || "Worldwide",
-      accessibility: row.accessibility_notes || "",
-      manuscript: row.book_object_key ? {
-        name: row.manuscript_original_name,
-        contentType: row.manuscript_content_type,
-        size: row.manuscript_size,
-        uploadedAt: row.manuscript_uploaded_at,
-        url: `/api/creator-applications/${row.id}/files/manuscript`,
-      } : null,
-      cover: row.cover_object_key ? {
-        name: row.cover_original_name,
-        contentType: row.cover_content_type,
-        size: row.cover_size,
-        uploadedAt: row.cover_uploaded_at,
-        url: `/api/creator-applications/${row.id}/files/cover`,
-      } : null,
+    firstBook: row.first_book_id ? {
+      id: row.first_book_id,
+      title: row.first_book_title || "Untitled book",
+      status: row.first_book_status,
     } : null,
-    submittedAt: row.submitted_at,
-    reviewedAt: row.reviewed_at,
-    adminMessage: row.admin_message,
   };
 }
 
 function serializeBook(row) {
+  const applicationBook = Boolean(row.application_id);
   const file = (kind) => {
     const manuscript = kind === "manuscript";
     const key = manuscript ? row.book_object_key : row.cover_object_key;
@@ -189,72 +141,144 @@ function serializeBook(row) {
       contentType: manuscript ? row.manuscript_content_type : row.cover_content_type,
       size: manuscript ? row.manuscript_size : row.cover_size,
       uploadedAt: manuscript ? row.manuscript_uploaded_at : row.cover_uploaded_at,
-      url: `/api/author/books/${row.id}/files/${kind}`,
+      url: applicationBook
+        ? `/api/creator-applications/${row.application_id}/files/${kind}`
+        : `/api/author/books/${row.id}/files/${kind}`,
     };
   };
   return {
-    kind: "book",
     id: row.id,
+    kind: "book",
     status: row.status,
+    submittedAt: row.submitted_at,
+    authorApplicationStatus: row.author_application_status || null,
+    canApprove: applicationBook
+      ? row.author_application_status === "approved"
+      : row.role === "author",
     applicant: {
       userId: row.owner_user_id,
       accountName: row.display_name,
       email: row.email,
       role: row.role,
-      creatorType: "author",
-      legalName: row.display_name,
+      legalName: row.legal_name || row.display_name,
+      penName: row.pen_name || "",
       rightsConfirmation: Boolean(row.rights_statement),
     },
     book: {
-      id: row.id, status: row.status, title: row.title || "", subtitle: row.subtitle || "",
-      language: row.language || "English", isbn: row.isbn || "", doi: row.doi || "",
-      series: row.series_name || "", edition: row.edition || "", author: row.author_name || "",
-      contributors: row.contributors || "", description: row.description || "",
-      categories: row.categories || "", keywords: row.keywords || "",
-      readingAge: row.reading_age || "", explicit: row.explicit_content === 1,
-      territories: row.territories || "Worldwide", accessibility: row.accessibility_notes || "",
-      manuscript: file("manuscript"), cover: file("cover"),
+      id: row.id,
+      title: row.title || "",
+      subtitle: row.subtitle || "",
+      language: row.language || "English",
+      isbn: row.isbn || "",
+      doi: row.doi || "",
+      series: row.series_name || "",
+      edition: row.edition || "",
+      author: row.author_name || "",
+      contributors: row.contributors || "",
+      description: row.description || "",
+      categories: row.categories || "",
+      territories: row.territories || "Worldwide",
+      accessibility: row.accessibility_notes || "",
+      manuscript: file("manuscript"),
+      cover: file("cover"),
     },
-    submittedAt: row.submitted_at,
-    reviewedAt: row.reviewed_at,
-    adminMessage: row.admin_message,
   };
 }
 
 async function listPending(env) {
-  const [applications, books] = await Promise.all([
-    env.DB.prepare(`${reviewSelect} WHERE a.status = 'pending' ORDER BY a.submitted_at ASC`).all(),
-    env.DB.prepare(`${bookReviewSelect} WHERE b.application_id IS NULL AND b.status = 'pending' ORDER BY b.submitted_at ASC`).all(),
+  const [authors, books] = await Promise.all([
+    env.DB.prepare(`${authorSelect} WHERE a.status = 'pending' ORDER BY a.submitted_at ASC`).all(),
+    env.DB.prepare(`${bookSelect} WHERE b.status = 'pending' ORDER BY b.submitted_at ASC`).all(),
   ]);
-  return [
-    ...(applications.results || []).map(serialize),
-    ...(books.results || []).map(serializeBook),
-  ].sort((a, b) => String(a.submittedAt).localeCompare(String(b.submittedAt)));
+  return {
+    authorApplications: (authors.results || []).map(serializeAuthor),
+    bookSubmissions: (books.results || []).map(serializeBook),
+  };
 }
 
-async function findSubmission(env, id) {
-  return env.DB.prepare(`${reviewSelect} WHERE a.id = ? LIMIT 1`).bind(id).first();
+async function findAuthor(env, id) {
+  return env.DB.prepare(`${authorSelect} WHERE a.id = ? LIMIT 1`).bind(id).first();
 }
 
-async function findBookSubmission(env, id) {
-  return env.DB.prepare(`${bookReviewSelect} WHERE b.id = ? AND b.application_id IS NULL LIMIT 1`).bind(id).first();
+async function findBook(env, id) {
+  return env.DB.prepare(`${bookSelect} WHERE b.id = ? LIMIT 1`).bind(id).first();
 }
 
-async function reviewBookSubmission(env, adminId, id, review) {
-  const current = await findBookSubmission(env, id);
-  if (!current) return { response: error("Submission not found.", 404) };
-  if (current.status !== "pending") return { response: error("Only pending submissions can be reviewed.", 409) };
-  const nextStatus = review.decision === "approve"
-    ? "approved" : review.decision === "request_changes" ? "changes_requested" : "rejected";
-  const notificationType = review.decision === "approve"
-    ? "book_approved" : review.decision === "request_changes" ? "book_changes_requested" : "book_rejected";
-  const notificationTitle = review.decision === "approve"
-    ? "Book approved" : review.decision === "request_changes" ? "Changes requested for your book" : "Book not approved";
-  const notificationMessage = review.message || `“${current.title}” was approved and is now live.`;
+async function reviewAuthor(env, reviewerId, id, review) {
+  const current = await findAuthor(env, id);
+  if (!current) return { response: error("Author application not found.", 404) };
+  if (current.status !== "pending") {
+    return { response: error("Only pending Author applications can be reviewed.", 409) };
+  }
+  const nextStatus = review.decision === "approve" ? "approved"
+    : review.decision === "request_changes" ? "changes_requested" : "rejected";
+  const notificationType = review.decision === "approve" ? "application_approved"
+    : review.decision === "request_changes" ? "application_changes_requested" : "application_rejected";
+  const notificationTitle = review.decision === "approve" ? "Author application approved"
+    : review.decision === "request_changes" ? "Changes requested for your Author application"
+      : "Author application not approved";
+  const notificationMessage = review.message || "Your Author application was approved.";
+  const statements = [
+    env.DB.prepare(`UPDATE author_applications SET status = ?, reviewed_at = CURRENT_TIMESTAMP,
+      reviewed_by = ?, admin_message = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND status = 'pending'`)
+      .bind(nextStatus, reviewerId, review.message || null, id),
+    env.DB.prepare(`INSERT INTO notifications
+      (id, user_id, type, title, message, related_record_type, related_record_id)
+      VALUES (?, ?, ?, ?, ?, 'author_application', ?)`)
+      .bind(crypto.randomUUID(), current.user_id, notificationType, notificationTitle, notificationMessage, id),
+    env.DB.prepare(`INSERT INTO audit_log
+      (id, admin_user_id, action, target_type, target_id, previous_value, new_value)
+      VALUES (?, ?, ?, 'author_application', ?, ?, ?)`)
+      .bind(crypto.randomUUID(), reviewerId, `author_application.${review.decision}`, id,
+        JSON.stringify({ status: current.status }), JSON.stringify({ status: nextStatus, message: review.message || null })),
+  ];
+  if (review.decision === "approve") {
+    statements.push(env.DB.prepare(`UPDATE profiles SET role = 'author', updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = ? AND role = 'reader'`).bind(current.user_id));
+  }
+  if (review.decision === "reject") {
+    const withdrawalMessage = "Automatically withdrawn because the Author application was rejected.";
+    if (current.first_book_id && current.first_book_status !== "approved") statements.push(
+      env.DB.prepare(`UPDATE books SET status = 'rejected', reviewed_at = CURRENT_TIMESTAMP,
+        reviewed_by = ?, admin_message = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE application_id = ? AND status != 'approved'`)
+        .bind(reviewerId, withdrawalMessage, id),
+      env.DB.prepare(`INSERT INTO audit_log
+        (id, admin_user_id, action, target_type, target_id, previous_value, new_value)
+        VALUES (?, ?, 'book.system_withdraw', 'book', ?, ?, ?)`)
+        .bind(crypto.randomUUID(), reviewerId, current.first_book_id,
+          JSON.stringify({ status: current.first_book_status }),
+          JSON.stringify({ status: "rejected", reason: withdrawalMessage }))
+    );
+  }
+  await env.DB.batch(statements);
+  return { row: await findAuthor(env, id) };
+}
+
+async function reviewBook(env, reviewerId, id, review) {
+  const current = await findBook(env, id);
+  if (!current) return { response: error("Book submission not found.", 404) };
+  if (current.status !== "pending") {
+    return { response: error("Only pending book submissions can be reviewed.", 409) };
+  }
+  const authorApproved = current.application_id
+    ? current.author_application_status === "approved"
+    : current.role === "author";
+  if (review.decision === "approve" && !authorApproved) {
+    return { response: error("Approve the Author application before approving this book.", 409) };
+  }
+  const nextStatus = review.decision === "approve" ? "approved"
+    : review.decision === "request_changes" ? "changes_requested" : "rejected";
+  const notificationType = review.decision === "approve" ? "book_approved"
+    : review.decision === "request_changes" ? "book_changes_requested" : "book_rejected";
+  const notificationTitle = review.decision === "approve" ? "Book approved"
+    : review.decision === "request_changes" ? "Changes requested for your book" : "Book not approved";
+  const notificationMessage = review.message || `“${current.title}” is now live.`;
   await env.DB.batch([
     env.DB.prepare(`UPDATE books SET status = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ?,
       admin_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'pending'`)
-      .bind(nextStatus, adminId, review.message || null, id),
+      .bind(nextStatus, reviewerId, review.message || null, id),
     env.DB.prepare(`INSERT INTO notifications
       (id, user_id, type, title, message, related_record_type, related_record_id)
       VALUES (?, ?, ?, ?, ?, 'book', ?)`)
@@ -262,114 +286,44 @@ async function reviewBookSubmission(env, adminId, id, review) {
     env.DB.prepare(`INSERT INTO audit_log
       (id, admin_user_id, action, target_type, target_id, previous_value, new_value)
       VALUES (?, ?, ?, 'book', ?, ?, ?)`)
-      .bind(crypto.randomUUID(), adminId, `book_submission.${review.decision}`, id,
-        JSON.stringify({ status: current.status }),
-        JSON.stringify({ status: nextStatus, message: review.message || null })),
+      .bind(crypto.randomUUID(), reviewerId, `book_submission.${review.decision}`, id,
+        JSON.stringify({ status: current.status }), JSON.stringify({ status: nextStatus, message: review.message || null })),
   ]);
-  return { row: await findBookSubmission(env, id) };
-}
-
-async function reviewSubmission(env, adminId, id, review) {
-  const current = await findSubmission(env, id);
-  if (!current) return { response: error("Submission not found.", 404) };
-  if (current.status !== "pending") {
-    return { response: error("Only pending submissions can be reviewed.", 409) };
-  }
-
-  const approved = review.decision === "approve";
-  const nextStatus = approved
-    ? "approved"
-    : review.decision === "request_changes"
-      ? "changes_requested"
-      : "rejected";
-  const notificationType = approved
-    ? "application_approved"
-    : review.decision === "request_changes"
-      ? "application_changes_requested"
-      : "application_rejected";
-  const notificationTitle = approved
-    ? "Creator Access approved"
-    : review.decision === "request_changes"
-      ? "Changes requested for your Creator application"
-      : "Creator application not approved";
-  const notificationMessage = review.message ||
-    "Your Creator Access application and first book were approved.";
-
-  const statements = [
-    env.DB.prepare(
-      `UPDATE author_applications SET status = ?, reviewed_at = CURRENT_TIMESTAMP,
-       reviewed_by = ?, admin_message = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ? AND status = 'pending'`
-    ).bind(nextStatus, adminId, review.message || null, id),
-    env.DB.prepare(
-      `UPDATE books SET status = ?, reviewed_at = CURRENT_TIMESTAMP,
-       reviewed_by = ?, admin_message = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE application_id = ? AND status = 'pending'`
-    ).bind(nextStatus, adminId, review.message || null, id),
-    env.DB.prepare(
-      `INSERT INTO notifications
-       (id, user_id, type, title, message, related_record_type, related_record_id)
-       VALUES (?, ?, ?, ?, ?, 'author_application', ?)`
-    ).bind(crypto.randomUUID(), current.user_id, notificationType,
-      notificationTitle, notificationMessage, id),
-    env.DB.prepare(
-      `INSERT INTO audit_log
-       (id, admin_user_id, action, target_type, target_id, previous_value, new_value)
-       VALUES (?, ?, ?, 'author_application', ?, ?, ?)`
-    ).bind(crypto.randomUUID(), adminId, `creator_application.${review.decision}`,
-      id, JSON.stringify({ status: current.status }),
-      JSON.stringify({ status: nextStatus, message: review.message || null })),
-  ];
-
-  if (approved) {
-    statements.push(env.DB.prepare(
-      `UPDATE profiles SET role = 'author', updated_at = CURRENT_TIMESTAMP
-       WHERE user_id = ? AND role = 'reader'`
-    ).bind(current.user_id));
-  }
-
-  await env.DB.batch(statements);
-  return { row: await findSubmission(env, id) };
+  return { row: await findBook(env, id) };
 }
 
 export async function handleAdminSubmissionRequest(request, env, executionContext) {
-  const authorization = await requireRoles(
-    request, env, ["admin"], executionContext
-  );
+  const authorization = await requireRolesOrOwner(request, env, ["admin"], executionContext);
   if (authorization.response) return authorization.response;
-
   const url = new URL(request.url);
+
   if (url.pathname === "/api/admin/submissions" && request.method === "GET") {
-    return Response.json({ submissions: await listPending(env) });
+    return Response.json(await listPending(env));
   }
 
-  const match = url.pathname.match(/^\/api\/admin\/submissions\/([0-9a-f-]+)$/i);
+  const match = url.pathname.match(/^\/api\/admin\/submissions\/(authors|books)\/([0-9a-f-]+)$/i);
   if (!match) return error("Not found.", 404);
-  if (request.method === "GET") {
-    const row = await findSubmission(env, match[1]);
-    if (row) return Response.json({ submission: serialize(row) });
-    const book = await findBookSubmission(env, match[1]);
-    return book ? Response.json({ submission: serializeBook(book) }) : error("Submission not found.", 404);
-  }
   if (request.method !== "POST") return error("Method not allowed.", 405);
   if (!mutationOriginIsTrusted(request, env)) return error("Invalid origin.", 403);
-
   let review;
-  try {
-    review = await readDecision(request);
-  } catch (response) {
-    return response instanceof Response ? response : error("Invalid request.", 400);
-  }
-  const application = await findSubmission(env, match[1]);
-  const result = application
-    ? await reviewSubmission(env, authorization.account.profile.user_id, match[1], review)
-    : await reviewBookSubmission(env, authorization.account.profile.user_id, match[1], review);
+  try { review = await readDecision(request); }
+  catch (response) { return response instanceof Response ? response : error("Invalid request.", 400); }
+
+  const isAuthor = match[1].toLowerCase() === "authors";
+  const result = isAuthor
+    ? await reviewAuthor(env, authorization.account.profile.user_id, match[2], review)
+    : await reviewBook(env, authorization.account.profile.user_id, match[2], review);
   if (result.response) return result.response;
 
   const baseUrl = env.BETTER_AUTH_URL || new URL(request.url).origin;
-  const isBook = !application;
-  queueTransactionalEmail(executionContext, env,
-    isBook ? buildBookReviewEmail(result.row, review.decision, baseUrl)
-      : buildCreatorReviewEmail(result.row, review.decision, baseUrl));
-  return Response.json({ submission: isBook ? serializeBook(result.row) : serialize(result.row) });
+  queueTransactionalEmail(
+    executionContext,
+    env,
+    isAuthor
+      ? buildCreatorReviewEmail(result.row, review.decision, baseUrl)
+      : buildBookReviewEmail(result.row, review.decision, baseUrl)
+  );
+  return Response.json({
+    submission: isAuthor ? serializeAuthor(result.row) : serializeBook(result.row),
+  });
 }

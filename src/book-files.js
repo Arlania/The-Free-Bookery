@@ -95,7 +95,7 @@ async function findBook(env, applicationId) {
 async function findAuthorBook(env, bookId) {
   return env.DB.prepare(
     `SELECT b.*, b.owner_user_id AS user_id, b.status AS application_status
-     FROM books b WHERE b.id = ? AND b.application_id IS NULL LIMIT 1`
+     FROM books b WHERE b.id = ? LIMIT 1`
   ).bind(bookId).first();
 }
 
@@ -171,7 +171,7 @@ async function upload(request, env, account, applicationId, kind) {
 async function serve(request, env, account, applicationId, kind) {
   const config = fileTypes[kind];
   const book = await findBook(env, applicationId);
-  const isAdmin = account.profile.role === "admin";
+  const isAdmin = account.accountRole === "owner" || account.profile.role === "admin";
   if (!book || (!isAdmin && book.user_id !== account.profile.user_id)) return error("File not found.", 404);
   const key = book[config.keyColumn];
   if (!key) return error("File not found.", 404);
@@ -251,7 +251,7 @@ async function uploadAuthorFile(request, env, account, bookId, kind) {
     }
     await env.DB.prepare(`UPDATE books SET ${config.keyColumn} = ?, ${config.nameColumn} = ?,
       ${config.typeColumn} = ?, ${config.sizeColumn} = ?, ${config.uploadedColumn} = CURRENT_TIMESTAMP,
-      updated_at = CURRENT_TIMESTAMP WHERE id = ? AND owner_user_id = ? AND application_id IS NULL`)
+      updated_at = CURRENT_TIMESTAMP WHERE id = ? AND owner_user_id = ?`)
       .bind(key, originalName, contentType, stored.size, bookId, book.user_id).run();
   } catch (cause) {
     console.error("Private author file upload failed", cause);
@@ -265,7 +265,7 @@ async function uploadAuthorFile(request, env, account, bookId, kind) {
 async function serveAuthorFile(request, env, account, bookId, kind) {
   const config = fileTypes[kind];
   const book = await findAuthorBook(env, bookId);
-  const isAdmin = account.profile.role === "admin";
+  const isAdmin = account.accountRole === "owner" || account.profile.role === "admin";
   if (!book || (!isAdmin && book.user_id !== account.profile.user_id)) return error("File not found.", 404);
   const key = book[config.keyColumn];
   if (!key) return error("File not found.", 404);
@@ -290,7 +290,7 @@ async function removeAuthorFile(request, env, account, bookId, kind) {
   const key = book[config.keyColumn];
   await env.DB.prepare(`UPDATE books SET ${config.keyColumn} = NULL, ${config.nameColumn} = NULL,
     ${config.typeColumn} = NULL, ${config.sizeColumn} = NULL, ${config.uploadedColumn} = NULL,
-    updated_at = CURRENT_TIMESTAMP WHERE id = ? AND owner_user_id = ? AND application_id IS NULL`)
+    updated_at = CURRENT_TIMESTAMP WHERE id = ? AND owner_user_id = ?`)
     .bind(bookId, book.user_id).run();
   if (key) await env.PRIVATE_BOOK_FILES.delete(key);
   return new Response(null, { status: 204 });

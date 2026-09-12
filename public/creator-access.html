@@ -397,6 +397,10 @@
                 ISBN
                 <input name="isbn" type="text" inputmode="numeric" />
               </label>
+              <label>
+                DOI
+                <input name="doi" type="text" maxlength="160" />
+              </label>
               <fieldset class="creator-rights creator-form-wide">
                 <legend>Publishing rights <b class="creator-required" aria-label="required">*</b></legend>
                 <label><input name="rights" type="radio" value="copyright" required /> I own the copyright and hold the necessary publishing rights.</label>
@@ -420,8 +424,8 @@
               </label>
               <label class="creator-upload-card">
                 <span class="creator-upload-icon" aria-hidden="true">JPG</span>
-                <strong>Cover image <b class="creator-required" aria-label="required">*</b></strong>
-                <span>JPG or PNG · portrait recommended</span>
+                <strong>Cover image</strong>
+                <span>Optional JPG or PNG · otherwise generated automatically</span>
                 <input name="cover" type="file" accept="image/jpeg,image/png" />
                 <span class="creator-existing-file" data-creator-existing-cover></span>
               </label>
@@ -539,6 +543,7 @@
       </div>
     </div>
 
+    <script src="book-cover.js"></script>
     <script src="script.js"></script>
   </body>
 </html>

@@ -65,7 +65,7 @@ const select = `SELECT id, owner_user_id, title, subtitle, language, isbn, doi,
  created_at, updated_at FROM books`;
 
 async function findBook(env, userId, id) {
-  return env.DB.prepare(`${select} WHERE id = ? AND owner_user_id = ? AND application_id IS NULL LIMIT 1`)
+  return env.DB.prepare(`${select} WHERE id = ? AND owner_user_id = ? LIMIT 1`)
     .bind(id, userId).first();
 }
 
@@ -100,7 +100,7 @@ function serialize(row) {
 
 async function list(env, userId) {
   const result = await env.DB.prepare(
-    `${select} WHERE owner_user_id = ? AND application_id IS NULL ORDER BY created_at DESC`
+    `${select} WHERE owner_user_id = ? ORDER BY created_at DESC`
   ).bind(userId).all();
   return (result.results || []).map(serialize);
 }
@@ -124,7 +124,7 @@ async function update(env, userId, id, book) {
     series_name = ?, edition = ?, author_name = ?, contributors = ?, description = ?,
     categories = ?, keywords = ?, reading_age = ?, explicit_content = ?, territories = ?,
     accessibility_notes = ?, rights_statement = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ? AND owner_user_id = ? AND application_id IS NULL`)
+    WHERE id = ? AND owner_user_id = ?`)
     .bind(book.title, book.subtitle, book.language, book.isbn, book.doi, book.series,
       book.edition, book.author, book.contributors, book.description, book.categories,
       book.keywords, book.readingAge, book.explicit ? 1 : 0, book.territories,
@@ -171,7 +171,7 @@ async function remove(env, userId, id) {
   if (!["draft", "changes_requested", "rejected"].includes(current.status)) {
     return { response: error("Only editable or rejected books can be deleted.", 409) };
   }
-  await env.DB.prepare(`DELETE FROM books WHERE id = ? AND owner_user_id = ? AND application_id IS NULL`)
+  await env.DB.prepare(`DELETE FROM books WHERE id = ? AND owner_user_id = ?`)
     .bind(id, userId).run();
   const keys = [current.book_object_key, current.cover_object_key].filter(Boolean);
   if (keys.length) await env.PRIVATE_BOOK_FILES.delete(keys);

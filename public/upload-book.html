@@ -44,48 +44,73 @@
 
       <form class="admin-book-upload-form" data-admin-book-upload hidden>
         <section aria-labelledby="admin-book-details-title">
-          <h2 id="admin-book-details-title">Book details</h2>
-          <div class="admin-book-upload-grid">
-            <label>Book title <b aria-label="required">*</b><input name="title" maxlength="300" required /></label>
+          <div class="creator-form-intro">
+            <h2 id="admin-book-details-title">Book details</h2>
+            <p>Enter the publication information readers will see for this title.</p>
+          </div>
+          <div class="creator-form-grid">
+            <label>Book title <b class="creator-required" aria-label="required">*</b><input name="title" maxlength="300" required /></label>
             <label>Subtitle <input name="subtitle" maxlength="300" /></label>
-            <label>Author <b aria-label="required">*</b><input name="author" maxlength="300" required /></label>
-            <label>Contributors <input name="contributors" maxlength="1000" placeholder="Editors, illustrators, translators…" /></label>
-            <label class="admin-book-upload-wide">简介 / Description <b aria-label="required">*</b><textarea name="description" rows="6" maxlength="4000" required></textarea></label>
-            <label>Genre or category <b aria-label="required">*</b><input name="categories" maxlength="500" placeholder="Fiction, History, Poetry…" required /></label>
-            <label>Language <b aria-label="required">*</b><input name="language" maxlength="80" value="English" required /></label>
-            <label>ISBN <input name="isbn" maxlength="40" /></label>
-            <label>DOI <input name="doi" maxlength="160" /></label>
-            <label>Availability <select name="territories"><option value="Worldwide">Worldwide</option><option value="Selected territories">Selected territories</option></select></label>
-            <label>Accessibility notes <input name="accessibility" maxlength="1000" placeholder="Image descriptions, accessible edition…" /></label>
+            <section class="creator-detail-block creator-form-wide" aria-labelledby="admin-series-heading">
+              <div><h4 id="admin-series-heading">Series</h4><p>Add a series name when applicable.</p></div>
+              <label>Series name<input name="series" maxlength="200" /></label>
+            </section>
+            <section class="creator-detail-block creator-form-wide" aria-labelledby="admin-edition-heading">
+              <div><h4 id="admin-edition-heading">Edition number</h4><p>Identify original or updated editions.</p></div>
+              <label>Edition number<input name="edition" maxlength="80" /></label>
+            </section>
+            <section class="creator-detail-block creator-form-wide" aria-labelledby="admin-author-heading">
+              <div><h4 id="admin-author-heading">Primary author</h4><p>Pen names are allowed.</p></div>
+              <div class="creator-name-row">
+                <label>First name <b class="creator-required" aria-label="required">*</b><input name="authorFirstName" required /></label>
+                <label>Last name <b class="creator-required" aria-label="required">*</b><input name="authorLastName" required /></label>
+              </div>
+            </section>
+            <section class="creator-detail-block creator-form-wide" aria-labelledby="admin-contributors-heading">
+              <div><h4 id="admin-contributors-heading">Contributors</h4><p>Add editors, illustrators, translators, or other contributors.</p></div>
+              <div class="creator-contributor-controls">
+                <button class="creator-add-contributor" type="button" data-admin-add-contributor>+ Add contributor</button>
+                <div class="creator-contributors" data-admin-contributors></div>
+              </div>
+            </section>
+            <label class="creator-form-wide">简介 / Description <b class="creator-required" aria-label="required">*</b><span class="creator-field-help">Summarize the book for readers.</span><textarea name="description" rows="6" maxlength="4000" required></textarea></label>
+            <fieldset class="creator-genres creator-form-wide">
+              <legend>Book genres <b class="creator-required" aria-label="required">*</b></legend>
+              <p>Choose up to three genres.</p>
+              <div class="creator-genre-options" data-admin-genres>
+                <label><input type="checkbox" name="genre" value="Fiction" /> Fiction</label><label><input type="checkbox" name="genre" value="Nonfiction" /> Nonfiction</label><label><input type="checkbox" name="genre" value="Fantasy" /> Fantasy</label><label><input type="checkbox" name="genre" value="Romance" /> Romance</label><label><input type="checkbox" name="genre" value="Mystery & Thriller" /> Mystery &amp; Thriller</label><label><input type="checkbox" name="genre" value="Science Fiction" /> Science Fiction</label><label><input type="checkbox" name="genre" value="Biography & Memoir" /> Biography &amp; Memoir</label><label><input type="checkbox" name="genre" value="History" /> History</label><label><input type="checkbox" name="genre" value="Young Adult" /> Young Adult</label><label><input type="checkbox" name="genre" value="Children's" /> Children's</label><label><input type="checkbox" name="genre" value="Poetry" /> Poetry</label><label><input type="checkbox" name="genre" value="Education" /> Education</label><label><input type="checkbox" name="genre" value="Other" data-admin-other-genre-choice /> Other</label>
+              </div>
+              <label class="creator-other-genre" data-admin-other-genre hidden>Write your genre<input name="otherGenre" maxlength="100" disabled /></label>
+              <span class="creator-genre-count" data-admin-genre-count>0 of 3 selected</span>
+            </fieldset>
+            <label>Language <b class="creator-required" aria-label="required">*</b><select name="language" required><option>English</option><option>Spanish</option><option>French</option><option>Chinese</option><option>Other</option></select></label>
+            <label>ISBN<input name="isbn" maxlength="40" /></label>
+            <label>DOI<input name="doi" maxlength="160" /></label>
+            <fieldset class="creator-rights creator-form-wide"><legend>Publishing rights <b class="creator-required" aria-label="required">*</b></legend><label><input name="rights" type="radio" value="copyright" required /> I own or administer the necessary publishing rights.</label><label><input name="rights" type="radio" value="public-domain" /> This is a public-domain work.</label></fieldset>
           </div>
         </section>
 
         <section aria-labelledby="admin-book-files-title">
-          <h2 id="admin-book-files-title">Files</h2>
-          <div class="admin-book-file-grid">
-            <label>
-              <strong>Book file <b aria-label="required">*</b></strong>
-              <span>PDF or EPUB · maximum 95 MB</span>
+          <div class="creator-form-intro"><h2 id="admin-book-files-title">Files &amp; access</h2><p>Upload the reading file and optional cover.</p></div>
+          <div class="creator-upload-grid">
+            <label class="creator-upload-card">
+              <span class="creator-upload-icon" aria-hidden="true">EPUB</span><strong>Book file <b class="creator-required" aria-label="required">*</b></strong><span>PDF or EPUB · maximum 95 MB</span>
               <input name="manuscript" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" required />
             </label>
-            <label>
-              <strong>Cover image <b aria-label="required">*</b></strong>
-              <span>JPG or PNG · maximum 10 MB</span>
-              <input name="cover" type="file" accept="image/jpeg,image/png" required />
+            <label class="creator-upload-card">
+              <span class="creator-upload-icon" aria-hidden="true">JPG</span><strong>Cover image</strong><span>Optional JPG or PNG · otherwise generated automatically</span>
+              <input name="cover" type="file" accept="image/jpeg,image/png" />
             </label>
           </div>
+          <div class="creator-form-grid creator-access-fields"><label>Availability<select name="territories"><option value="Worldwide">Worldwide</option><option value="Selected territories">Selected territories</option></select></label><label>Accessibility notes<input name="accessibility" maxlength="1000" placeholder="Alt text, image descriptions, etc." /></label></div>
         </section>
-
-        <label class="admin-book-rights">
-          <input name="rights" type="checkbox" required />
-          <span>I confirm that Free Bookery has the rights or permission required to distribute this book. <b aria-label="required">*</b></span>
-        </label>
 
         <p class="admin-book-upload-status" data-admin-book-upload-status role="status" aria-live="polite"></p>
         <button class="admin-book-upload-submit" type="submit">Upload and publish book</button>
       </form>
     </main>
 
+    <script src="book-cover.js"></script>
     <script src="script.js"></script>
     <script src="upload-book.js"></script>
   </body>

@@ -1694,8 +1694,8 @@ function creatorStatusCopy(status) {
       action: "Continue Application",
     },
     pending: {
-      title: "Application under review",
-      message: "Your Author application and first book are waiting for Admin review.",
+      title: "Author application under review",
+      message: "Your Author application and first book are reviewed separately. Your book cannot be approved until your Author application is approved.",
     },
     changes_requested: {
       title: "Changes requested",
@@ -1703,12 +1703,12 @@ function creatorStatusCopy(status) {
       action: "Review Requested Changes",
     },
     approved: {
-      title: "Creator Access approved",
-      message: "Your application has been approved. Refresh your session to open the Author workspace.",
+      title: "Author status approved",
+      message: "You can now use Creator Access. Your first book has its own review status and will only become public after a separate approval.",
     },
     rejected: {
-      title: "Application not approved",
-      message: "Review the Admin message below for more information.",
+      title: "Author application not approved",
+      message: "Your linked first-book request was automatically withdrawn. Review the Admin message below for more information.",
     },
   }[status];
 }
@@ -1734,6 +1734,20 @@ function renderCreatorApplicationStatus() {
   const description = document.createElement("p");
   description.textContent = copy.message;
   creatorApplicationStatus.append(heading, description);
+
+  if (creatorApplicationData?.book) {
+    const bookStatus = document.createElement("p");
+    bookStatus.className = "creator-application-book-status";
+    const labels = {
+      draft: "Draft",
+      pending: "Pending separate book review",
+      changes_requested: "Book changes requested",
+      approved: "Book approved and published",
+      rejected: application.status === "rejected" ? "Automatically withdrawn" : "Book not approved",
+    };
+    bookStatus.textContent = `First book: ${creatorApplicationData.book.title || "Untitled"} — ${labels[creatorApplicationData.book.status] || creatorApplicationData.book.status}`;
+    creatorApplicationStatus.append(bookStatus);
+  }
 
   if (application.adminMessage) {
     const adminMessage = document.createElement("p");
@@ -1895,7 +1909,8 @@ function renderCreatorDashboard() {
 
 function updateCreatorFormStep(step) {
   if (!creatorTitleForm) return;
-  creatorFormStep = Math.min(4, Math.max(1, step));
+  const firstStep = hasApprovedCreatorAccess() ? 2 : 1;
+  creatorFormStep = Math.min(4, Math.max(firstStep, step));
 
   creatorTitleForm.querySelectorAll("[data-creator-step]").forEach((panel) => {
     panel.hidden = Number(panel.dataset.creatorStep) !== creatorFormStep;
@@ -1903,11 +1918,12 @@ function updateCreatorFormStep(step) {
 
   document.querySelectorAll("[data-creator-step-indicator]").forEach((item) => {
     const itemStep = Number(item.dataset.creatorStepIndicator);
+    item.hidden = itemStep === 1 && firstStep === 2;
     item.classList.toggle("is-active", itemStep === creatorFormStep);
     item.classList.toggle("is-complete", itemStep < creatorFormStep);
   });
 
-  if (creatorBackButton) creatorBackButton.hidden = creatorFormStep === 1;
+  if (creatorBackButton) creatorBackButton.hidden = creatorFormStep === firstStep;
   if (creatorNextButton) creatorNextButton.hidden = creatorFormStep === 4;
   if (creatorSubmitButton) creatorSubmitButton.hidden = creatorFormStep !== 4;
 
@@ -1933,10 +1949,10 @@ function setCreatorTitleModal(open) {
       if (field && !(field instanceof RadioNodeList)) field.disabled = laterBook;
     });
     populateCreatorForm();
-    updateCreatorFormStep(1);
+    updateCreatorFormStep(laterBook ? 2 : 1);
     creatorTitleForm.querySelector("input, select")?.focus();
   } else {
-    updateCreatorFormStep(1);
+    updateCreatorFormStep(hasApprovedCreatorAccess() ? 2 : 1);
   }
 }
 
@@ -2046,6 +2062,7 @@ function populateCreatorForm() {
   setCreatorField("subtitle", book.subtitle);
   setCreatorField("language", book.language);
   setCreatorField("isbn", book.isbn);
+  setCreatorField("doi", book.doi);
   setCreatorField("series", book.series);
   setCreatorField("edition", book.edition);
   const [authorFirstName, authorLastName] = splitCreatorName(book.author);
@@ -2116,9 +2133,30 @@ function uploadContentType(file, kind) {
 }
 
 async function uploadCreatorFiles(recordId) {
+  let manuscript = creatorTitleForm.elements.manuscript.files[0];
+  let cover = creatorTitleForm.elements.cover.files[0];
+  const existingBook = hasApprovedCreatorAccess() ? activeCreatorBook : creatorApplicationData?.book;
+  if (!cover && !existingBook?.cover && window.FreeBookeryCover) {
+    if (!manuscript && existingBook?.manuscript?.url) {
+      const response = await fetch(existingBook.manuscript.url);
+      if (response.ok) {
+        const blob = await response.blob();
+        manuscript = new File([blob], existingBook.manuscript.name || "book.pdf", {
+          type: existingBook.manuscript.contentType || blob.type,
+        });
+      }
+    }
+    if (manuscript) {
+      creatorFormMessage.textContent = "Creating a cover…";
+      cover = await window.FreeBookeryCover.create(
+        manuscript,
+        creatorTitleForm.elements.title.value
+      );
+    }
+  }
   const uploads = [
     ["manuscript", creatorTitleForm.elements.manuscript.files[0], 95 * 1024 * 1024],
-    ["cover", creatorTitleForm.elements.cover.files[0], 10 * 1024 * 1024],
+    ["cover", cover, 10 * 1024 * 1024],
   ];
   for (const [kind, file, limit] of uploads) {
     if (!file) continue;
@@ -2189,6 +2227,7 @@ function getCreatorFormData() {
       author: [formData.get("authorFirstName"), formData.get("authorLastName")].map((part) => String(part || "").trim()).filter(Boolean).join(" "),
       language: String(formData.get("language") || "English"),
       isbn: String(formData.get("isbn") || "").trim(),
+      doi: String(formData.get("doi") || "").trim(),
       series: String(formData.get("series") || "").trim(),
       edition: String(formData.get("edition") || "").trim(),
       contributors: creatorContributorValue(),
