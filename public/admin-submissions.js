@@ -5,10 +5,19 @@ const workspace = document.querySelector("[data-admin-workspace]");
 const tabs = Array.from(document.querySelectorAll("[data-admin-tab]"));
 const authorCount = document.querySelector("[data-author-count]");
 const bookCount = document.querySelector("[data-book-count]");
+const decisionDialog = document.querySelector("[data-admin-decision-dialog]");
+const decisionForm = document.querySelector("[data-admin-decision-form]");
+const decisionTitle = document.querySelector("[data-admin-decision-title]");
+const decisionEyebrow = document.querySelector("[data-admin-decision-eyebrow]");
+const decisionHelp = document.querySelector("[data-admin-decision-help]");
+const decisionMessage = document.querySelector("[data-admin-decision-message]");
+const decisionStatus = document.querySelector("[data-admin-decision-status]");
+const decisionConfirm = document.querySelector("[data-admin-decision-confirm]");
 
 let submissions = { authors: [], books: [] };
 let activeTab = "authors";
 let selectedId = null;
+let pendingDecision = null;
 
 function valueOrFallback(value) {
   return value === true ? "Yes" : value === false ? "No" : String(value || "Not provided");
@@ -116,62 +125,55 @@ function fileCard(label, file, image = false) {
   return card;
 }
 
-function reviewForm(submission) {
+function closeDecisionDialog() {
+  if (decisionDialog?.open) decisionDialog.close();
+  pendingDecision = null;
+  decisionForm?.reset();
+  if (decisionStatus) decisionStatus.textContent = "";
+}
+
+function openDecisionDialog(submission, decision) {
   const isAuthor = submission.kind === "author";
-  const form = document.createElement("form");
-  form.className = "admin-review-form";
+  const target = isAuthor ? "Author" : "Book";
+  pendingDecision = { submission, decision };
+  decisionForm.reset();
+  decisionStatus.textContent = "";
+  decisionEyebrow.textContent = `${target} decision`;
+  decisionTitle.textContent = `${decision === "approve" ? "Approve" : "Reject"} ${target}`;
+  decisionHelp.textContent = decision === "reject" ? "Required for rejection" : "Optional for approval";
+  decisionMessage.required = decision === "reject";
+  decisionConfirm.textContent = decision === "approve" ? `Approve ${target}` : `Reject ${target}`;
+  decisionConfirm.classList.toggle("is-reject", decision === "reject");
+  decisionDialog.showModal();
+  decisionMessage.focus();
+}
+
+function reviewActions(submission) {
+  const isAuthor = submission.kind === "author";
+  const container = document.createElement("section");
+  container.className = "admin-review-form";
   if (!isAuthor && !submission.canApprove) {
     const warning = document.createElement("div");
     warning.className = "admin-review-warning";
     warning.textContent = "This book cannot be approved until its Author application is approved.";
-    form.append(warning);
+    container.append(warning);
   }
-  const label = document.createElement("label");
-  label.innerHTML = 'Message to applicant <span>Required when requesting changes or rejecting</span><textarea name="message" rows="4" maxlength="2000"></textarea>';
-  const status = document.createElement("p");
-  status.setAttribute("role", "status");
-  status.setAttribute("aria-live", "polite");
   const actions = document.createElement("div");
   actions.className = "admin-review-actions";
   [
     ["approve", isAuthor ? "Approve Author" : "Approve Book", "is-approve"],
-    ["request_changes", "Request changes", ""],
     ["reject", isAuthor ? "Reject Author" : "Reject Book", "is-reject"],
   ].forEach(([value, text, className]) => {
     const button = document.createElement("button");
-    button.type = "submit";
-    button.name = "decision";
-    button.value = value;
+    button.type = "button";
     button.textContent = text;
     button.className = className;
     if (value === "approve" && !isAuthor && !submission.canApprove) button.disabled = true;
+    button.addEventListener("click", () => openDecisionDialog(submission, value));
     actions.append(button);
   });
-  form.append(label, status, actions);
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const decision = event.submitter?.value;
-    const buttons = form.querySelectorAll("button");
-    buttons.forEach((button) => { button.disabled = true; });
-    status.textContent = "Saving decision…";
-    try {
-      const collection = isAuthor ? "authors" : "books";
-      const response = await fetch(`/api/admin/submissions/${collection}/${submission.id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision, message: form.elements.message.value.trim() }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Decision could not be saved.");
-      await loadSubmissions(`${isAuthor ? "Author" : "Book"} decision saved.`);
-    } catch (error) {
-      status.textContent = error.message;
-      buttons.forEach((button) => {
-        button.disabled = button.value === "approve" && !isAuthor && !submission.canApprove;
-      });
-    }
-  });
-  return form;
+  container.append(actions);
+  return container;
 }
 
 function renderDetail(submission) {
@@ -179,7 +181,7 @@ function renderDetail(submission) {
   if (submission.kind === "author") {
     const intro = document.createElement("header");
     intro.className = "admin-review-detail-heading";
-    intro.innerHTML = `<span>AUTHOR APPLICATION</span><h2></h2><p>Review identity and eligibility separately from the first book.</p>`;
+    intro.innerHTML = `<span>AUTHOR APPLICATION</span><h2></h2>`;
     intro.querySelector("h2").textContent = submission.applicant.legalName || submission.applicant.accountName;
     detail.append(
       intro,
@@ -190,10 +192,7 @@ function renderDetail(submission) {
         ["Biography", submission.applicant.biography, true],
         ["Verification details", submission.applicant.verificationDetails, true],
       ]),
-      detailSection("First-book status", [
-        ["Title", submission.firstBook?.title], ["Separate book decision", submission.firstBook?.status || "Not submitted"],
-      ]),
-      reviewForm(submission)
+      reviewActions(submission)
     );
     return;
   }
@@ -221,9 +220,52 @@ function renderDetail(submission) {
       ["Accessibility", book.accessibility], ["简介 / Description", book.description, true],
     ]),
     files,
-    reviewForm(submission)
+    reviewActions(submission)
   );
 }
+
+decisionForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!pendingDecision) return;
+  const { submission, decision } = pendingDecision;
+  const applicantMessage = decisionMessage.value.trim();
+  if (decision === "reject" && !applicantMessage) {
+    decisionMessage.setCustomValidity("Write a message explaining the rejection.");
+    decisionMessage.reportValidity();
+    return;
+  }
+  decisionMessage.setCustomValidity("");
+  decisionConfirm.disabled = true;
+  decisionStatus.textContent = "Saving decision…";
+  try {
+    const collection = submission.kind === "author" ? "authors" : "books";
+    const response = await fetch(`/api/admin/submissions/${collection}/${submission.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ decision, message: applicantMessage }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Decision could not be saved.");
+    closeDecisionDialog();
+    await loadSubmissions(`${submission.kind === "author" ? "Author" : "Book"} ${decision === "approve" ? "approved" : "rejected"}.`);
+  } catch (error) {
+    decisionStatus.textContent = error.message;
+  } finally {
+    decisionConfirm.disabled = false;
+  }
+});
+
+decisionMessage?.addEventListener("input", () => decisionMessage.setCustomValidity(""));
+document.querySelectorAll("[data-admin-decision-close], [data-admin-decision-cancel]").forEach((button) => {
+  button.addEventListener("click", closeDecisionDialog);
+});
+decisionDialog?.addEventListener("click", (event) => {
+  if (event.target === decisionDialog) closeDecisionDialog();
+});
+decisionDialog?.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeDecisionDialog();
+});
 
 async function loadSubmissions(successMessage = "") {
   message.textContent = successMessage || "Loading submissions…";

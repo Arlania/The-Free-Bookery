@@ -4889,13 +4889,25 @@ img, svg, video, canvas { max-width: 100%; }
 .admin-submission-empty { padding: 20px 0; opacity: .7; }
 .admin-review-form { margin-top: 34px; padding-top: 26px; border-top: 2px solid #100b2b; }
 .admin-review-warning { margin-bottom: 18px; padding: 14px 16px; border-left: 4px solid #a76522; border-radius: 6px; background: #fff0d7; font-weight: 700; }
-.admin-review-form label { display: grid; gap: 9px; font-weight: 700; }
-.admin-review-form label span { font-size: .82rem; font-weight: 400; opacity: .7; }
-.admin-review-form textarea { width: 100%; box-sizing: border-box; resize: vertical; padding: 14px; border: 1px solid rgba(16, 11, 43, .35); border-radius: 10px; font: inherit; }
 .admin-review-form > div { display: flex; flex-wrap: wrap; gap: 10px; }
 .admin-review-form button.is-approve { background: #276749; }
 .admin-review-form button.is-reject { background: #9b2c2c; }
 .admin-review-form button:disabled { opacity: .55; cursor: wait; }
+.admin-decision-dialog { width: min(520px, calc(100% - 32px)); padding: 0; border: 0; border-radius: 18px; background: #fffaf0; color: #100b2b; box-shadow: 0 28px 80px rgba(16, 11, 43, .35); }
+.admin-decision-dialog::backdrop { background: rgba(16, 11, 43, .72); backdrop-filter: blur(3px); }
+.admin-decision-dialog form { position: relative; padding: clamp(26px, 5vw, 42px); }
+.admin-decision-dialog h2 { margin: 8px 0 26px; font-size: clamp(1.8rem, 5vw, 2.7rem); }
+.admin-decision-close { position: absolute; top: 17px; right: 19px; border: 0; background: transparent; color: inherit; font-size: 2rem; line-height: 1; cursor: pointer; }
+.admin-decision-dialog label { display: grid; gap: 8px; font-weight: 850; }
+.admin-decision-dialog label span { font-size: .82rem; font-weight: 500; color: rgba(16, 11, 43, .62); }
+.admin-decision-dialog textarea { width: 100%; box-sizing: border-box; resize: vertical; padding: 14px; border: 1px solid rgba(16, 11, 43, .35); border-radius: 10px; background: #fff; font: inherit; }
+.admin-decision-status { min-height: 24px; margin: 10px 0; color: #9b2c2c; }
+.admin-decision-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.admin-decision-actions button { border: 0; border-radius: 10px; padding: 12px 18px; font: inherit; font-weight: 800; cursor: pointer; }
+.admin-decision-cancel { background: #e9e2d6; color: #100b2b; }
+.admin-decision-confirm { background: #276749; color: #fffaf0; }
+.admin-decision-confirm.is-reject { background: #9b2c2c; }
+.admin-decision-confirm:disabled { opacity: .55; cursor: wait; }
 
 @media (max-width: 760px) {
   .admin-submissions-layout { grid-template-columns: 1fr; }

@@ -33,6 +33,23 @@
         </article>
       </section>
     </main>
+    <dialog class="admin-decision-dialog" data-admin-decision-dialog aria-labelledby="admin-decision-title">
+      <form method="dialog" data-admin-decision-form>
+        <button class="admin-decision-close" type="button" data-admin-decision-close aria-label="Close">×</button>
+        <p class="creator-eyebrow" data-admin-decision-eyebrow>Review decision</p>
+        <h2 id="admin-decision-title" data-admin-decision-title>Approve application</h2>
+        <label>
+          Message to applicant
+          <span data-admin-decision-help>Optional</span>
+          <textarea name="message" rows="5" maxlength="2000" data-admin-decision-message></textarea>
+        </label>
+        <p class="admin-decision-status" data-admin-decision-status role="status" aria-live="polite"></p>
+        <div class="admin-decision-actions">
+          <button type="button" class="admin-decision-cancel" data-admin-decision-cancel>Cancel</button>
+          <button type="submit" class="admin-decision-confirm" data-admin-decision-confirm>Approve</button>
+        </div>
+      </form>
+    </dialog>
     <script src="script.js"></script><script src="admin-submissions.js"></script>
   </body>
 </html>
