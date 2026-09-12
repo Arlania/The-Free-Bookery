@@ -290,7 +290,7 @@ async function loadSubmissions(successMessage = "") {
     renderTabs();
     renderList();
     if (selectedId) renderDetail(items.find((item) => item.id === selectedId));
-    if (!successMessage) message.textContent = `${submissions.authors.length} Author application${submissions.authors.length === 1 ? "" : "s"} and ${submissions.books.length} book submission${submissions.books.length === 1 ? "" : "s"} pending.`;
+    if (!successMessage) message.textContent = "";
   } catch (error) {
     message.textContent = error.message;
   }
