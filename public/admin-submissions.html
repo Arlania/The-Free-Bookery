@@ -43,6 +43,10 @@
           <span data-admin-decision-help>Optional</span>
           <textarea name="message" rows="5" maxlength="2000" data-admin-decision-message></textarea>
         </label>
+        <label class="book-duplicate-confirmation" data-admin-review-duplicate-confirmation hidden>
+          <input type="checkbox" name="confirmDuplicate" />
+          I reviewed the matching ISBN or DOI and confirm this is a legitimate new edition or replacement.
+        </label>
         <p class="admin-decision-status" data-admin-decision-status role="status" aria-live="polite"></p>
         <div class="admin-decision-actions">
           <button type="button" class="admin-decision-cancel" data-admin-decision-cancel>Cancel</button>

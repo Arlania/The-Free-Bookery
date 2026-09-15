@@ -1,4 +1,11 @@
 import { requireRoles } from "./authorization.js";
+import {
+  doiIsValid,
+  findDuplicateBooks,
+  isbnIsValid,
+  normalizeDoi,
+  normalizeIsbn,
+} from "./book-metadata.js";
 
 function error(message, status) {
   return Response.json({ error: message }, { status });
@@ -59,8 +66,9 @@ async function readBook(request, env, executionContext, id) {
   if (authorization.response) return authorization.response;
   const book = await findApprovedBook(env, id);
   if (!book?.book_object_key) return error("Book file not found.", 404);
-  if (book.manuscript_content_type !== "application/pdf") {
-    return error("This file cannot be opened in the PDF reader.", 415);
+  const contentType = book.manuscript_content_type;
+  if (!["application/pdf", "application/epub+zip"].includes(contentType)) {
+    return error("This book format cannot be opened in the reader.", 415);
   }
   const rangeRequested = request.headers.has("range");
   const object = await env.PRIVATE_BOOK_FILES.get(
@@ -70,8 +78,8 @@ async function readBook(request, env, executionContext, id) {
   if (!object) return error("Book file not found.", 404);
   const headers = new Headers();
   object.writeHttpMetadata(headers);
-  headers.set("Content-Type", "application/pdf");
-  headers.set("Content-Disposition", `inline; filename="${(book.manuscript_original_name || "book.pdf").replace(/"/g, "")}"`);
+  headers.set("Content-Type", contentType);
+  headers.set("Content-Disposition", `inline; filename="${(book.manuscript_original_name || (contentType === "application/pdf" ? "book.pdf" : "book.epub")).replace(/"/g, "")}"`);
   headers.set("Cache-Control", "private, no-store, max-age=0");
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Accept-Ranges", "bytes");
@@ -100,6 +108,22 @@ export async function handleBookRequest(request, env, executionContext) {
   const url = new URL(request.url);
   if (url.pathname === "/api/books/search" && request.method === "GET") {
     return searchBooks(request, env);
+  }
+  if (url.pathname === "/api/books/duplicate-check" && request.method === "GET") {
+    const authorization = await requireRoles(
+      request, env, ["reader", "author", "admin"], executionContext
+    );
+    if (authorization.response) return authorization.response;
+    const isbn = String(url.searchParams.get("isbn") || "").trim();
+    const doi = String(url.searchParams.get("doi") || "").trim();
+    if (!isbnIsValid(isbn)) return error("Enter a valid ISBN-10 or ISBN-13.", 400);
+    if (!doiIsValid(doi)) return error("Enter a valid DOI.", 400);
+    const matches = await findDuplicateBooks(env, {
+      id: String(url.searchParams.get("exclude") || "").slice(0, 100),
+      isbn_normalized: normalizeIsbn(isbn) || null,
+      doi_normalized: normalizeDoi(doi) || null,
+    });
+    return Response.json({ hasDuplicates: matches.length > 0, count: matches.length });
   }
   const match = url.pathname.match(/^\/api\/books\/([^/]+)(\/(read|cover))?$/);
   if (!match) return error("Not found.", 404);

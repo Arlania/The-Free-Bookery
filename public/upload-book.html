@@ -86,6 +86,14 @@
             <label>Language <b class="creator-required" aria-label="required">*</b><select name="language" required><option>English</option><option>Spanish</option><option>French</option><option>Chinese</option><option>Other</option></select></label>
             <label>ISBN<input name="isbn" maxlength="40" /></label>
             <label>DOI<input name="doi" maxlength="160" /></label>
+            <p class="creator-form-wide creator-help">
+              ISBN and DOI matches are not automatically rejected. If a matching book exists, an Admin must confirm that this is a legitimate new edition or replacement before it can be published.
+            </p>
+            <div class="book-duplicate-note creator-form-wide" data-admin-duplicate-note hidden role="note"></div>
+            <label class="book-duplicate-confirmation creator-form-wide" data-admin-duplicate-confirmation hidden>
+              <input type="checkbox" name="confirmDuplicate" />
+              I confirm this is a legitimate new edition or replacement and want to publish it.
+            </label>
             <fieldset class="creator-rights creator-form-wide"><legend>Publishing rights <b class="creator-required" aria-label="required">*</b></legend><label><input name="rights" type="radio" value="copyright" required /> I own or administer the necessary publishing rights.</label><label><input name="rights" type="radio" value="public-domain" /> This is a public-domain work.</label></fieldset>
           </div>
         </section>
@@ -102,16 +110,19 @@
               <input name="cover" type="file" accept="image/jpeg,image/png" />
             </label>
           </div>
-          <div class="creator-form-grid creator-access-fields"><label>Availability<select name="territories"><option value="Worldwide">Worldwide</option><option value="Selected territories">Selected territories</option></select></label><label>Accessibility notes<input name="accessibility" maxlength="1000" placeholder="Alt text, image descriptions, etc." /></label></div>
+          <div class="creator-form-grid creator-access-fields"><label>Accessibility notes<input name="accessibility" maxlength="1000" placeholder="Alt text, image descriptions, etc." /></label></div>
         </section>
 
         <p class="admin-book-upload-status" data-admin-book-upload-status role="status" aria-live="polite"></p>
+        <button class="upload-cancel-button" type="button" data-admin-upload-cancel hidden>Cancel upload</button>
         <button class="admin-book-upload-submit" type="submit">Upload and publish book</button>
       </form>
     </main>
 
-    <script src="book-cover.js"></script>
-    <script src="script.js"></script>
-    <script src="upload-book.js"></script>
+    <script src="vendor/epubjs/jszip.min.js"></script>
+    <script src="vendor/epubjs/epub.min.js"></script>
+    <script src="book-cover.js?v=20260915-upload"></script>
+    <script src="script.js?v=20260915-upload"></script>
+    <script src="upload-book.js?v=20260915-upload2"></script>
   </body>
 </html>

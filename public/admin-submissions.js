@@ -11,6 +11,7 @@ const decisionTitle = document.querySelector("[data-admin-decision-title]");
 const decisionEyebrow = document.querySelector("[data-admin-decision-eyebrow]");
 const decisionHelp = document.querySelector("[data-admin-decision-help]");
 const decisionMessage = document.querySelector("[data-admin-decision-message]");
+const decisionDuplicateConfirmation = document.querySelector("[data-admin-review-duplicate-confirmation]");
 const decisionStatus = document.querySelector("[data-admin-decision-status]");
 const decisionConfirm = document.querySelector("[data-admin-decision-confirm]");
 
@@ -142,6 +143,9 @@ function openDecisionDialog(submission, decision) {
   decisionTitle.textContent = `${decision === "approve" ? "Approve" : "Reject"} ${target}`;
   decisionHelp.textContent = decision === "reject" ? "Required for rejection" : "Optional for approval";
   decisionMessage.required = decision === "reject";
+  const duplicateApproval = !isAuthor && decision === "approve" && submission.duplicateMatches?.length > 0;
+  decisionDuplicateConfirmation.hidden = !duplicateApproval;
+  decisionDuplicateConfirmation.querySelector("input").required = duplicateApproval;
   decisionConfirm.textContent = decision === "approve" ? `Approve ${target}` : `Reject ${target}`;
   decisionConfirm.classList.toggle("is-reject", decision === "reject");
   decisionDialog.showModal();
@@ -210,15 +214,32 @@ function renderDetail(submission) {
   fileGrid.className = "admin-review-files";
   fileGrid.append(fileCard("Cover", book.cover, true), fileCard("Book file", book.manuscript));
   files.append(fileGrid);
+  let duplicateNotice = null;
+  if (submission.duplicateMatches?.length) {
+    duplicateNotice = document.createElement("section");
+    duplicateNotice.className = "admin-review-warning admin-review-duplicate-warning";
+    const heading = document.createElement("strong");
+    heading.textContent = "Possible duplicate ISBN or DOI";
+    const description = document.createElement("p");
+    description.textContent = "Confirm that this is a legitimate new edition or replacement before approving.";
+    const list = document.createElement("ul");
+    submission.duplicateMatches.forEach((match) => {
+      const item = document.createElement("li");
+      item.textContent = `${match.title || "Untitled"} — ${match.author || "Unknown author"} (${match.status})`;
+      list.append(item);
+    });
+    duplicateNotice.append(heading, description, list);
+  }
   detail.append(
     intro,
     detailSection("Book details", [
       ["Author", book.author], ["Subtitle", book.subtitle], ["Language", book.language],
       ["ISBN", book.isbn], ["DOI", book.doi], ["Series", book.series],
       ["Edition", book.edition], ["Contributors", book.contributors],
-      ["Genres", book.categories], ["Availability", book.territories],
+      ["Genres", book.categories],
       ["Accessibility", book.accessibility], ["简介 / Description", book.description, true],
     ]),
+    ...(duplicateNotice ? [duplicateNotice] : []),
     files,
     reviewActions(submission)
   );
@@ -242,7 +263,11 @@ decisionForm?.addEventListener("submit", async (event) => {
     const response = await fetch(`/api/admin/submissions/${collection}/${submission.id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ decision, message: applicantMessage }),
+      body: JSON.stringify({
+        decision,
+        message: applicantMessage,
+        confirmDuplicate: Boolean(decisionForm.elements.confirmDuplicate?.checked),
+      }),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Decision could not be saved.");

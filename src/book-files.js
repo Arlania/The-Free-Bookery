@@ -57,13 +57,24 @@ function extension(contentType) {
   }[contentType];
 }
 
-function signatureIsValid(bytes, contentType) {
+export function signatureIsValid(bytes, contentType) {
   if (contentType === "application/pdf") {
     return bytes.length >= 5 && String.fromCharCode(...bytes.slice(0, 5)) === "%PDF-";
   }
   if (contentType === "application/epub+zip") {
-    return bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b &&
-      bytes[2] === 0x03 && bytes[3] === 0x04;
+    if (bytes.length < 58 || bytes[0] !== 0x50 || bytes[1] !== 0x4b ||
+        bytes[2] !== 0x03 || bytes[3] !== 0x04) return false;
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const compression = view.getUint16(8, true);
+    const filenameLength = view.getUint16(26, true);
+    const extraLength = view.getUint16(28, true);
+    const filenameStart = 30;
+    const dataStart = filenameStart + filenameLength + extraLength;
+    const expectedType = "application/epub+zip";
+    if (compression !== 0 || dataStart + expectedType.length > bytes.length) return false;
+    const filename = new TextDecoder().decode(bytes.slice(filenameStart, filenameStart + filenameLength));
+    const mimetype = new TextDecoder().decode(bytes.slice(dataStart, dataStart + expectedType.length));
+    return filename === "mimetype" && mimetype === expectedType;
   }
   if (contentType === "image/jpeg") {
     return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
@@ -78,10 +89,34 @@ function signatureIsValid(bytes, contentType) {
 async function inspectRequest(request) {
   if (!request.body) throw error("A file body is required.", 400);
   const reader = request.clone().body.getReader();
-  const first = await reader.read();
-  if (first.done || !first.value?.length) throw error("The file is empty.", 400);
+  const chunks = [];
+  let length = 0;
+  while (length < 512) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    if (chunk.value?.length) {
+      chunks.push(chunk.value);
+      length += chunk.value.length;
+    }
+  }
   await reader.cancel();
-  return { prefix: first.value, stream: request.body };
+  if (!length) throw error("The file is empty.", 400);
+  const prefix = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    prefix.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return { prefix, stream: request.body };
+}
+
+function clientValidation(request, contentType, kind) {
+  const validation = request.headers.get("x-book-file-validated") || "";
+  if (kind === "cover") return validation === "image-decoded" ? validation : "";
+  if (contentType === "application/pdf") {
+    return validation === "pdfjs-first-page" ? validation : "";
+  }
+  return validation === "epub-container" ? validation : "";
 }
 
 async function findBook(env, applicationId) {
@@ -129,6 +164,12 @@ async function upload(request, env, account, applicationId, kind) {
 
   const contentType = (request.headers.get("content-type") || "").split(";")[0].toLowerCase();
   if (!config.allowed.has(contentType)) return error("Unsupported file type.", 415);
+  const validation = clientValidation(request, contentType, kind);
+  if (!validation) {
+    return error(kind === "cover"
+      ? "The cover image must be decoded and validated before upload."
+      : "The manuscript must be opened and validated before upload.", 422);
+  }
   const declaredSize = Number(request.headers.get("content-length") || 0);
   if (declaredSize > config.maxBytes) return error("File is too large.", 413);
   const originalName = cleanFilename(
@@ -156,15 +197,21 @@ async function upload(request, env, account, applicationId, kind) {
     await env.DB.prepare(
       `UPDATE books SET ${config.keyColumn} = ?, ${config.nameColumn} = ?,
        ${config.typeColumn} = ?, ${config.sizeColumn} = ?,
-       ${config.uploadedColumn} = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+       ${config.uploadedColumn} = CURRENT_TIMESTAMP,
+       manuscript_validation = CASE WHEN ? = 'manuscript' THEN ? ELSE manuscript_validation END,
+       updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND owner_user_id = ?`
-    ).bind(key, originalName, contentType, stored.size, book.id, book.user_id).run();
+    ).bind(key, originalName, contentType, stored.size, kind, validation, book.id, book.user_id).run();
   } catch (cause) {
     console.error("Private file upload failed", cause);
     if (stored) await env.PRIVATE_BOOK_FILES.delete(key);
     return error("File upload failed.", 500);
   }
-  if (oldKey && oldKey !== key) await env.PRIVATE_BOOK_FILES.delete(oldKey);
+  if (oldKey && oldKey !== key) {
+    await env.PRIVATE_BOOK_FILES.delete(oldKey).catch((cause) => {
+      console.error("Old private file cleanup failed", cause);
+    });
+  }
   return Response.json({ file: fileMetadata(await findBook(env, applicationId), kind) }, { status: 201 });
 }
 
@@ -197,12 +244,17 @@ async function remove(request, env, account, applicationId, kind) {
   if (!book || book.user_id !== account.profile.user_id) return error("Application not found.", 404);
   if (!["draft", "changes_requested"].includes(book.application_status)) return error("Files cannot currently be removed.", 409);
   const key = book[config.keyColumn];
+  if (key) {
+    try { await env.PRIVATE_BOOK_FILES.delete(key); }
+    catch { return error("The file could not be removed. Try again.", 503); }
+  }
   await env.DB.prepare(
     `UPDATE books SET ${config.keyColumn} = NULL, ${config.nameColumn} = NULL,
      ${config.typeColumn} = NULL, ${config.sizeColumn} = NULL,
-     ${config.uploadedColumn} = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-  ).bind(book.id).run();
-  if (key) await env.PRIVATE_BOOK_FILES.delete(key);
+     ${config.uploadedColumn} = NULL,
+     manuscript_validation = CASE WHEN ? = 'manuscript' THEN NULL ELSE manuscript_validation END,
+     updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+  ).bind(kind, book.id).run();
   return new Response(null, { status: 204 });
 }
 
@@ -229,6 +281,12 @@ async function uploadAuthorFile(request, env, account, bookId, kind) {
   if (!["draft", "changes_requested"].includes(book.status)) return error("Files can only be changed while the book is editable.", 409);
   const contentType = (request.headers.get("content-type") || "").split(";")[0].toLowerCase();
   if (!config.allowed.has(contentType)) return error("Unsupported file type.", 415);
+  const validation = clientValidation(request, contentType, kind);
+  if (!validation) {
+    return error(kind === "cover"
+      ? "The cover image must be decoded and validated before upload."
+      : "The manuscript must be opened and validated before upload.", 422);
+  }
   const declaredSize = Number(request.headers.get("content-length") || 0);
   if (declaredSize > config.maxBytes) return error("File is too large.", 413);
   const originalName = cleanFilename(decodeFilename(request.headers.get("x-file-name") || ""));
@@ -251,14 +309,19 @@ async function uploadAuthorFile(request, env, account, bookId, kind) {
     }
     await env.DB.prepare(`UPDATE books SET ${config.keyColumn} = ?, ${config.nameColumn} = ?,
       ${config.typeColumn} = ?, ${config.sizeColumn} = ?, ${config.uploadedColumn} = CURRENT_TIMESTAMP,
+      manuscript_validation = CASE WHEN ? = 'manuscript' THEN ? ELSE manuscript_validation END,
       updated_at = CURRENT_TIMESTAMP WHERE id = ? AND owner_user_id = ?`)
-      .bind(key, originalName, contentType, stored.size, bookId, book.user_id).run();
+      .bind(key, originalName, contentType, stored.size, kind, validation, bookId, book.user_id).run();
   } catch (cause) {
     console.error("Private author file upload failed", cause);
     if (stored) await env.PRIVATE_BOOK_FILES.delete(key);
     return error("File upload failed.", 500);
   }
-  if (oldKey && oldKey !== key) await env.PRIVATE_BOOK_FILES.delete(oldKey);
+  if (oldKey && oldKey !== key) {
+    await env.PRIVATE_BOOK_FILES.delete(oldKey).catch((cause) => {
+      console.error("Old private author file cleanup failed", cause);
+    });
+  }
   return Response.json({ file: authorFileMetadata(await findAuthorBook(env, bookId), kind) }, { status: 201 });
 }
 
@@ -288,11 +351,15 @@ async function removeAuthorFile(request, env, account, bookId, kind) {
   if (!book || book.user_id !== account.profile.user_id) return error("Book not found.", 404);
   if (!["draft", "changes_requested"].includes(book.status)) return error("Files cannot currently be removed.", 409);
   const key = book[config.keyColumn];
+  if (key) {
+    try { await env.PRIVATE_BOOK_FILES.delete(key); }
+    catch { return error("The file could not be removed. Try again.", 503); }
+  }
   await env.DB.prepare(`UPDATE books SET ${config.keyColumn} = NULL, ${config.nameColumn} = NULL,
     ${config.typeColumn} = NULL, ${config.sizeColumn} = NULL, ${config.uploadedColumn} = NULL,
+    manuscript_validation = CASE WHEN ? = 'manuscript' THEN NULL ELSE manuscript_validation END,
     updated_at = CURRENT_TIMESTAMP WHERE id = ? AND owner_user_id = ?`)
-    .bind(bookId, book.user_id).run();
-  if (key) await env.PRIVATE_BOOK_FILES.delete(key);
+    .bind(kind, bookId, book.user_id).run();
   return new Response(null, { status: 204 });
 }
 

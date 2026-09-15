@@ -401,9 +401,13 @@
                 DOI
                 <input name="doi" type="text" maxlength="160" />
               </label>
+              <p class="creator-form-wide creator-help">
+                ISBN and DOI matches are not automatically rejected. If a matching book exists, an Admin must confirm that this is a legitimate new edition or replacement before approving it.
+              </p>
+              <div class="book-duplicate-note creator-form-wide" data-creator-duplicate-note hidden role="note"></div>
               <fieldset class="creator-rights creator-form-wide">
                 <legend>Publishing rights <b class="creator-required" aria-label="required">*</b></legend>
-                <label><input name="rights" type="radio" value="copyright" required /> I own the copyright and hold the necessary publishing rights.</label>
+                <label><input name="rights" type="radio" value="copyright" required /> I own or administer the necessary publishing rights.</label>
                 <label><input name="rights" type="radio" value="public-domain" /> This is a public-domain work.</label>
               </fieldset>
             </div>
@@ -432,13 +436,6 @@
             </div>
             <div class="creator-form-grid creator-access-fields">
               <label>
-                Availability
-                <select name="territories">
-                  <option value="Worldwide">Worldwide</option>
-                  <option value="Selected territories">Selected territories</option>
-                </select>
-              </label>
-              <label>
                 Accessibility notes
                 <input name="accessibility" type="text" placeholder="Alt text, image descriptions, etc." />
               </label>
@@ -462,6 +459,7 @@
           </section>
 
           <p class="creator-form-message" data-creator-form-message role="status" aria-live="polite"></p>
+          <button type="button" class="upload-cancel-button" data-creator-upload-cancel hidden>Cancel upload</button>
           <div class="creator-form-actions">
             <button type="button" class="creator-form-back" data-creator-form-back hidden>Back</button>
             <button type="button" class="creator-form-draft" data-creator-form-draft>Save as draft</button>
@@ -543,7 +541,9 @@
       </div>
     </div>
 
-    <script src="book-cover.js"></script>
-    <script src="script.js"></script>
+    <script src="vendor/epubjs/jszip.min.js"></script>
+    <script src="vendor/epubjs/epub.min.js"></script>
+    <script src="book-cover.js?v=20260915-upload"></script>
+    <script src="script.js?v=20260915-upload"></script>
   </body>
 </html>

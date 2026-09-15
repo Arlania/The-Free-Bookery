@@ -1,4 +1,14 @@
 import { requireRoles } from "./authorization.js";
+import {
+  categoriesAreValid,
+  doiIsValid,
+  isbnIsValid,
+  normalizeDoi,
+  normalizeIsbn,
+  normalizeRightsBasis,
+  storedBookFilesExist,
+  websiteIsValid,
+} from "./book-metadata.js";
 
 const editableStatuses = new Set(["draft", "changes_requested"]);
 const textLimits = {
@@ -27,6 +37,16 @@ const textLimits = {
 
 function jsonError(message, status) {
   return Response.json({ error: message }, { status });
+}
+
+function trustedOrigin(request, env) {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  const requestOrigin = new URL(request.url).origin;
+  const configuredOrigin = env.BETTER_AUTH_URL
+    ? new URL(env.BETTER_AUTH_URL).origin
+    : requestOrigin;
+  return origin === requestOrigin || origin === configuredOrigin;
 }
 
 async function readJson(request) {
@@ -78,35 +98,50 @@ function normalizePayload(body) {
     });
   }
 
+  const website = cleanText(application.website, "website");
+  const isbn = cleanText(book.isbn, "isbn");
+  const doi = cleanText(book.doi, "doi");
+  const categories = cleanText(book.categories, "categories");
+  const rightsBasis = normalizeRightsBasis(book.rightsBasis || application.rightsBasis);
+  if (!websiteIsValid(website)) throw jsonError("Enter a valid website URL.", 400);
+  if (!isbnIsValid(isbn)) throw jsonError("Enter a valid ISBN-10 or ISBN-13.", 400);
+  if (!doiIsValid(doi)) throw jsonError("Enter a valid DOI.", 400);
+  if (categories && !categoriesAreValid(categories)) {
+    throw jsonError("Choose between one and three book genres.", 400);
+  }
+  if (!rightsBasis && (application.rightsConfirmation === true || book.rightsConfirmation === true)) {
+    throw jsonError("Choose the publishing-rights basis.", 400);
+  }
+
   return {
     application: {
       creatorType,
       legalName: cleanText(application.legalName, "legalName"),
       penName: cleanText(application.penName, "penName"),
       biography: cleanText(application.biography, "biography"),
-      website: cleanText(application.website, "website"),
+      website,
       verificationDetails: cleanText(
         application.verificationDetails,
         "verificationDetails"
       ),
-      rightsConfirmation: application.rightsConfirmation === true,
+      rightsBasis,
     },
     book: {
       title: cleanText(book.title, "title"),
       subtitle: cleanText(book.subtitle, "subtitle"),
       language: cleanText(book.language || "English", "language"),
-      isbn: cleanText(book.isbn, "isbn"),
-      doi: cleanText(book.doi, "doi"),
+      isbn,
+      doi,
       series: cleanText(book.series, "series"),
       edition: cleanText(book.edition, "edition"),
       author: cleanText(book.author, "author"),
       contributors: cleanText(book.contributors, "contributors"),
       description: cleanText(book.description, "description"),
-      categories: cleanText(book.categories, "categories"),
+      categories,
       keywords: cleanText(book.keywords, "keywords"),
       readingAge: cleanText(book.readingAge, "readingAge"),
       explicit: book.explicit === true,
-      territories: cleanText(book.territories || "Worldwide", "territories"),
+      territories: "Worldwide",
       accessibility: cleanText(book.accessibility, "accessibility"),
     },
   };
@@ -124,6 +159,8 @@ async function findApplication(env, userId, applicationId) {
        b.series_name, b.edition, b.author_name, b.contributors,
        b.description, b.categories, b.keywords, b.reading_age,
        b.explicit_content, b.territories, b.accessibility_notes,
+       b.isbn_normalized, b.doi_normalized, b.rights_basis,
+       b.manuscript_validation,
        b.book_object_key, b.manuscript_original_name,
        b.manuscript_content_type, b.manuscript_size, b.manuscript_uploaded_at,
        b.cover_object_key, b.cover_original_name, b.cover_content_type,
@@ -154,6 +191,7 @@ function serialize(row) {
       website: row.website || "",
       verificationDetails: row.verification_details || "",
       rightsConfirmation: row.rights_confirmation === 1,
+      rightsBasis: row.rights_basis || "",
       submittedAt: row.submitted_at,
       reviewedAt: row.reviewed_at,
       adminMessage: row.admin_message,
@@ -180,6 +218,7 @@ function serialize(row) {
           explicit: row.explicit_content === 1,
           territories: row.territories || "Worldwide",
           accessibility: row.accessibility_notes || "",
+          rightsBasis: row.rights_basis || "",
           manuscript: row.book_object_key ? {
             name: row.manuscript_original_name,
             contentType: row.manuscript_content_type,
@@ -258,16 +297,18 @@ async function updateDraft(env, userId, applicationId, payload) {
       application.biography,
       application.website,
       application.verificationDetails,
-      application.rightsConfirmation ? 1 : 0,
+      application.rightsBasis ? 1 : 0,
       applicationId,
       userId
     ),
     env.DB.prepare(
       `UPDATE books SET
-         title = ?, subtitle = ?, language = ?, isbn = ?, doi = ?, series_name = ?,
+         title = ?, subtitle = ?, language = ?, isbn = ?, doi = ?,
+         isbn_normalized = ?, doi_normalized = ?, series_name = ?,
          edition = ?, author_name = ?, contributors = ?, description = ?,
          categories = ?, keywords = ?, reading_age = ?, explicit_content = ?,
          territories = ?, accessibility_notes = ?, rights_statement = ?,
+         rights_basis = ?,
          updated_at = CURRENT_TIMESTAMP
        WHERE application_id = ? AND owner_user_id = ?`
     ).bind(
@@ -276,6 +317,8 @@ async function updateDraft(env, userId, applicationId, payload) {
       book.language,
       book.isbn,
       book.doi,
+      normalizeIsbn(book.isbn) || null,
+      normalizeDoi(book.doi) || null,
       book.series,
       book.edition,
       book.author,
@@ -287,7 +330,8 @@ async function updateDraft(env, userId, applicationId, payload) {
       book.explicit ? 1 : 0,
       book.territories,
       book.accessibility,
-      application.rightsConfirmation ? "Confirmed by applicant" : "",
+      application.rightsBasis ? "Confirmed by applicant" : "",
+      application.rightsBasis || null,
       applicationId,
       userId
     ),
@@ -301,12 +345,13 @@ function validateSubmission(row) {
   if (!row.legal_name) missing.push("legal name");
   if (!row.biography) missing.push("biography");
   if (!row.verification_details) missing.push("verification details");
-  if (row.rights_confirmation !== 1) missing.push("rights confirmation");
+  if (row.rights_confirmation !== 1 || !row.rights_basis) missing.push("rights confirmation");
   if (!row.title) missing.push("book title");
   if (!row.author_name) missing.push("primary author");
   if (!row.description) missing.push("description");
   if (!row.categories) missing.push("categories");
   if (!row.book_object_key) missing.push("book file");
+  if (row.book_object_key && !row.manuscript_validation) missing.push("validated book file");
   if (!row.cover_object_key) missing.push("cover image");
   return missing;
 }
@@ -323,6 +368,9 @@ async function submitApplication(env, userId, applicationId) {
     return {
       error: jsonError(`Complete these fields: ${missing.join(", ")}.`, 400),
     };
+  }
+  if (!await storedBookFilesExist(env, current)) {
+    return { error: jsonError("The uploaded manuscript or cover is missing. Upload it again before submitting.", 409) };
   }
 
   const notificationId = crypto.randomUUID();
@@ -369,6 +417,9 @@ export async function handleCreatorApplicationRequest(
 
   const userId = authorization.account.profile.user_id;
   const url = new URL(request.url);
+  if (request.method !== "GET" && !trustedOrigin(request, env)) {
+    return jsonError("Invalid origin.", 403);
+  }
 
   if (url.pathname === "/api/creator-applications/me" && request.method === "GET") {
     return Response.json(serialize(await findApplication(env, userId)));

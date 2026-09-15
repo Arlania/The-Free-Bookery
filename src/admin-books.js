@@ -1,4 +1,5 @@
 import { requireRolesOrOwner } from "./authorization.js";
+import { findDuplicateBooks, storedBookFilesExist } from "./book-metadata.js";
 
 function error(message, status) {
   return Response.json({ error: message }, { status });
@@ -19,7 +20,9 @@ async function publishBook(request, env, account, bookId) {
 
   const book = await env.DB.prepare(
     `SELECT id, owner_user_id, title, author_name, description, categories,
-            rights_statement, book_object_key, cover_object_key, status
+            rights_statement, rights_basis, isbn, doi, isbn_normalized,
+            doi_normalized, manuscript_validation, book_object_key,
+            cover_object_key, status
      FROM books
      WHERE id = ? AND owner_user_id = ? AND application_id IS NULL
      LIMIT 1`
@@ -35,10 +38,40 @@ async function publishBook(request, env, account, bookId) {
   if (!book.author_name) missing.push("author");
   if (!book.description) missing.push("description");
   if (!book.categories) missing.push("genre/category");
-  if (!book.rights_statement) missing.push("rights confirmation");
+  if (!book.rights_statement || !book.rights_basis) missing.push("rights confirmation");
   if (!book.book_object_key) missing.push("book file");
+  if (book.book_object_key && !book.manuscript_validation) missing.push("validated book file");
   if (!book.cover_object_key) missing.push("cover image");
   if (missing.length) return error(`Complete these fields: ${missing.join(", ")}.`, 400);
+  if (!await storedBookFilesExist(env, book)) {
+    return error("The uploaded manuscript or cover is missing. Upload it again before publishing.", 409);
+  }
+
+  const duplicates = await findDuplicateBooks(env, book);
+  let confirmation = false;
+  if (request.headers.get("content-type")?.includes("application/json")) {
+    try {
+      const raw = await request.text();
+      if (raw.length > 2000) return error("Request is too large.", 413);
+      confirmation = JSON.parse(raw || "{}").confirmDuplicate === true;
+    } catch {
+      return error("Invalid JSON.", 400);
+    }
+  }
+  if (duplicates.length && !confirmation) {
+    return Response.json({
+      error: "Confirm the matching ISBN or DOI before publishing.",
+      code: "DUPLICATE_CONFIRMATION_REQUIRED",
+      duplicates: duplicates.map((item) => ({
+        id: item.id,
+        title: item.title,
+        author: item.author_name,
+        isbn: item.isbn,
+        doi: item.doi,
+        status: item.status,
+      })),
+    }, { status: 409 });
+  }
 
   await env.DB.batch([
     env.DB.prepare(

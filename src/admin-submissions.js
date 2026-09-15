@@ -1,5 +1,6 @@
 import { requireRolesOrOwner } from "./authorization.js";
 import { queueTransactionalEmail } from "./email.js";
+import { findDuplicateBooks, storedBookFilesExist } from "./book-metadata.js";
 
 const decisions = new Set(["approve", "request_changes", "reject"]);
 
@@ -77,12 +78,13 @@ async function readDecision(request) {
   catch { throw error("Invalid JSON.", 400); }
   const decision = String(body.decision || "");
   const message = String(body.message || "").trim();
+  const confirmDuplicate = body.confirmDuplicate === true;
   if (!decisions.has(decision)) throw error("Invalid review decision.", 400);
   if (message.length > 2000) throw error("Review message is too long.", 400);
   if (decision !== "approve" && !message) {
     throw error("A message is required for changes or rejection.", 400);
   }
-  return { decision, message };
+  return { decision, message, confirmDuplicate };
 }
 
 const authorSelect = `SELECT
@@ -182,6 +184,22 @@ function serializeBook(row) {
       manuscript: file("manuscript"),
       cover: file("cover"),
     },
+    duplicateMatches: row.duplicateMatches || [],
+  };
+}
+
+async function addDuplicateMatches(env, row) {
+  const matches = await findDuplicateBooks(env, row);
+  return {
+    ...row,
+    duplicateMatches: matches.map((item) => ({
+      id: item.id,
+      title: item.title,
+      author: item.author_name,
+      isbn: item.isbn,
+      doi: item.doi,
+      status: item.status,
+    })),
   };
 }
 
@@ -192,7 +210,9 @@ async function listPending(env) {
   ]);
   return {
     authorApplications: (authors.results || []).map(serializeAuthor),
-    bookSubmissions: (books.results || []).map(serializeBook),
+    bookSubmissions: await Promise.all(
+      (books.results || []).map(async (row) => serializeBook(await addDuplicateMatches(env, row)))
+    ),
   };
 }
 
@@ -268,6 +288,13 @@ async function reviewBook(env, reviewerId, id, review) {
   if (review.decision === "approve" && !authorApproved) {
     return { response: error("Approve the Author application before approving this book.", 409) };
   }
+  if (review.decision === "approve" && !await storedBookFilesExist(env, current)) {
+    return { response: error("The manuscript or cover is missing from private storage. Ask the Author to upload it again.", 409) };
+  }
+  const duplicates = review.decision === "approve" ? await findDuplicateBooks(env, current) : [];
+  if (duplicates.length && !review.confirmDuplicate) {
+    return { response: error("Confirm the matching ISBN or DOI before approving this book.", 409) };
+  }
   const nextStatus = review.decision === "approve" ? "approved"
     : review.decision === "request_changes" ? "changes_requested" : "rejected";
   const notificationType = review.decision === "approve" ? "book_approved"
@@ -289,7 +316,7 @@ async function reviewBook(env, reviewerId, id, review) {
       .bind(crypto.randomUUID(), reviewerId, `book_submission.${review.decision}`, id,
         JSON.stringify({ status: current.status }), JSON.stringify({ status: nextStatus, message: review.message || null })),
   ]);
-  return { row: await findBook(env, id) };
+  return { row: await addDuplicateMatches(env, await findBook(env, id)) };
 }
 
 export async function handleAdminSubmissionRequest(request, env, executionContext) {

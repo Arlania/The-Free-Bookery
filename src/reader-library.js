@@ -30,7 +30,9 @@ function cleanName(value) {
 function serializeBook(row) {
   return {
     id: row.id, title: row.title, author: row.author_name,
-    description: row.description || "", cover_url: row.public_cover_url,
+    description: row.description || "", cover_url: row.public_cover_url || (row.cover_object_key
+      ? `/api/books/${encodeURIComponent(row.id)}/cover`
+      : null),
     has_file: row.status === "approved" && row.book_object_key ? 1 : 0,
     status: row.status,
   };
@@ -47,7 +49,7 @@ async function ownedCollection(env, userId, id) {
 
 async function collectionBooks(env, collectionId) {
   const result = await env.DB.prepare(`SELECT b.id, b.title, b.author_name, b.description,
-    b.public_cover_url, b.book_object_key, b.status
+    b.public_cover_url, b.book_object_key, b.cover_object_key, b.status
     FROM reader_collection_books cb JOIN books b ON b.id = cb.book_id
     WHERE cb.collection_id = ? ORDER BY cb.added_at DESC`).bind(collectionId).all();
   return (result.results || []).map(serializeBook);
@@ -72,7 +74,7 @@ async function listCollections(env, userId) {
 
 async function listStarred(env, userId) {
   const result = await env.DB.prepare(`SELECT b.id, b.title, b.author_name, b.description,
-    b.public_cover_url, b.book_object_key, b.status
+    b.public_cover_url, b.book_object_key, b.cover_object_key, b.status
     FROM reader_starred_books s JOIN books b ON b.id = s.book_id
     WHERE s.user_id = ? ORDER BY s.starred_at DESC`).bind(userId).all();
   return (result.results || []).map(serializeBook);

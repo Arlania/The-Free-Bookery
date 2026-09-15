@@ -99,6 +99,8 @@ const creatorOtherGenreInput = creatorTitleForm?.elements.namedItem("otherGenre"
 const creatorApplicationStatus = document.querySelector(
   "[data-creator-application-status]"
 );
+const creatorDuplicateNote = document.querySelector("[data-creator-duplicate-note]");
+const creatorUploadCancel = document.querySelector("[data-creator-upload-cancel]");
 const starredGrid = document.querySelector("[data-starred-grid]");
 const creatorApplicationOpenButtons = document.querySelectorAll(
   "[data-creator-application-open]"
@@ -148,6 +150,7 @@ let creatorBooks = [];
 let activeCreatorBook = null;
 let readerCollections = [];
 let starredBooks = [];
+let activeCreatorUpload = null;
 
 const libraryTabs = [...document.querySelectorAll("[data-library-tab]")];
 const libraryPanels = [...document.querySelectorAll("[data-library-panel]")];
@@ -2057,7 +2060,9 @@ function populateCreatorForm() {
     setCreatorField("website", application.website);
     setCreatorField("verificationDetails", application.verificationDetails);
   }
-  setCreatorField("rights", (application ? application.rightsConfirmation : book.rightsConfirmation) ? "copyright" : "");
+  const rightsBasis = application?.rightsBasis || book.rightsBasis || "";
+  setCreatorField("rights", rightsBasis === "public_domain" ? "public-domain" :
+    rightsBasis === "owned_or_administered" ? "copyright" : "");
   setCreatorField("title", book.title);
   setCreatorField("subtitle", book.subtitle);
   setCreatorField("language", book.language);
@@ -2079,7 +2084,6 @@ function populateCreatorForm() {
   setCreatorField("keywords", book.keywords);
   setCreatorField("readingAge", book.readingAge);
   setCreatorField("explicit", book.explicit ? "yes" : "no");
-  setCreatorField("territories", book.territories);
   setCreatorField("accessibility", book.accessibility);
 
   renderExistingCreatorFile("manuscript", book.manuscript);
@@ -2129,13 +2133,87 @@ function uploadContentType(file, kind) {
   if (kind === "manuscript" && file.name.toLowerCase().endsWith(".epub")) {
     return "application/epub+zip";
   }
-  return file.type;
+  if (kind === "manuscript") return "application/pdf";
+  return file.type === "image/png" ? "image/png" : "image/jpeg";
+}
+
+function uploadWithProgress(url, file, kind, validation) {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    activeCreatorUpload = request;
+    if (creatorUploadCancel) creatorUploadCancel.hidden = false;
+    request.open("PUT", url);
+    request.responseType = "json";
+    request.setRequestHeader("Content-Type", uploadContentType(file, kind));
+    request.setRequestHeader("X-File-Name", encodeURIComponent(file.name));
+    request.setRequestHeader("X-Book-File-Validated", validation);
+    request.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable || !creatorFormMessage) return;
+      const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+      creatorFormMessage.textContent = `${kind === "cover" ? "Cover" : "Book file"} upload: ${percent}%`;
+    });
+    const finish = () => {
+      activeCreatorUpload = null;
+      if (creatorUploadCancel) creatorUploadCancel.hidden = true;
+    };
+    request.addEventListener("load", () => {
+      finish();
+      const result = request.response || {};
+      if (request.status >= 200 && request.status < 300) resolve(result);
+      else reject(new Error(result.error || `${kind === "cover" ? "Cover" : "Book file"} upload failed.`));
+    });
+    request.addEventListener("error", () => {
+      finish();
+      reject(new Error("The upload was interrupted. Your draft is saved; retry the file when ready."));
+    });
+    request.addEventListener("abort", () => {
+      finish();
+      reject(new Error("Upload canceled. Your draft is saved and can be retried."));
+    });
+    request.send(file);
+  });
+}
+
+creatorUploadCancel?.addEventListener("click", () => activeCreatorUpload?.abort());
+
+creatorTitleForm?.querySelectorAll('[name="isbn"], [name="doi"]').forEach((field) => {
+  field.addEventListener("change", () => {
+    const book = getCreatorFormData().book;
+    const excludeId = activeCreatorBook?.id || creatorApplicationData?.book?.id || "";
+    updateCreatorDuplicateNote(book, excludeId).catch((cause) => {
+      if (creatorFormMessage) creatorFormMessage.textContent = cause.message;
+    });
+  });
+});
+
+async function updateCreatorDuplicateNote(book, excludeId = "") {
+  if (!creatorDuplicateNote) return { hasDuplicates: false, count: 0 };
+  const parameters = new URLSearchParams({ isbn: book.isbn || "", doi: book.doi || "" });
+  if (excludeId) parameters.set("exclude", excludeId);
+  if (!book.isbn && !book.doi) {
+    creatorDuplicateNote.hidden = true;
+    creatorDuplicateNote.textContent = "";
+    return { hasDuplicates: false, count: 0 };
+  }
+  const response = await fetch(`/api/books/duplicate-check?${parameters}`);
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "ISBN and DOI could not be checked.");
+  creatorDuplicateNote.hidden = !result.hasDuplicates;
+  creatorDuplicateNote.textContent = result.hasDuplicates
+    ? `Note: ${result.count} existing book${result.count === 1 ? "" : "s"} use the same ISBN or DOI. You may submit this title, and an Admin will confirm whether it is a new edition or replacement.`
+    : "";
+  return result;
 }
 
 async function uploadCreatorFiles(recordId) {
   let manuscript = creatorTitleForm.elements.manuscript.files[0];
   let cover = creatorTitleForm.elements.cover.files[0];
   const existingBook = hasApprovedCreatorAccess() ? activeCreatorBook : creatorApplicationData?.book;
+  let manuscriptValidation = "";
+  if (manuscript) {
+    creatorFormMessage.textContent = "Validating book file…";
+    manuscriptValidation = await window.FreeBookeryCover.validateManuscript(manuscript);
+  }
   if (!cover && !existingBook?.cover && window.FreeBookeryCover) {
     if (!manuscript && existingBook?.manuscript?.url) {
       const response = await fetch(existingBook.manuscript.url);
@@ -2155,27 +2233,21 @@ async function uploadCreatorFiles(recordId) {
     }
   }
   const uploads = [
-    ["manuscript", creatorTitleForm.elements.manuscript.files[0], 95 * 1024 * 1024],
+    ["manuscript", creatorTitleForm.elements.manuscript.files[0], 95 * 1024 * 1024, manuscriptValidation],
     ["cover", cover, 10 * 1024 * 1024],
   ];
-  for (const [kind, file, limit] of uploads) {
+  for (const [kind, file, limit, existingValidation] of uploads) {
     if (!file) continue;
     if (file.size > limit) throw new Error(`${kind === "cover" ? "Cover" : "Book file"} is too large.`);
-    const response = await fetch(
+    const validation = existingValidation || await window.FreeBookeryCover.validateCover(file);
+    await uploadWithProgress(
       hasApprovedCreatorAccess()
         ? `/api/author/books/${recordId}/files/${kind}`
         : `/api/creator-applications/${recordId}/files/${kind}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": uploadContentType(file, kind),
-          "X-File-Name": encodeURIComponent(file.name),
-        },
-        body: file,
-      }
+      file,
+      kind,
+      validation
     );
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || `${kind} upload failed.`);
   }
   const refreshed = await fetch(hasApprovedCreatorAccess()
     ? `/api/author/books/${recordId}` : "/api/creator-applications/me");
@@ -2220,6 +2292,8 @@ function getCreatorFormData() {
         formData.get("verificationDetails") || ""
       ).trim(),
       rightsConfirmation: Boolean(formData.get("rights")),
+      rightsBasis: formData.get("rights") === "public-domain" ? "public_domain" :
+        formData.get("rights") === "copyright" ? "owned_or_administered" : "",
     },
     book: {
       title: String(formData.get("title") || "").trim(),
@@ -2236,9 +2310,10 @@ function getCreatorFormData() {
       keywords: String(formData.get("keywords") || "").trim(),
       readingAge: String(formData.get("readingAge") || "").trim(),
       explicit: String(formData.get("explicit") || "no") === "yes",
-      territories: String(formData.get("territories") || "Worldwide"),
       accessibility: String(formData.get("accessibility") || "").trim(),
       rightsConfirmation: Boolean(formData.get("rights")),
+      rightsBasis: formData.get("rights") === "public-domain" ? "public_domain" :
+        formData.get("rights") === "copyright" ? "owned_or_administered" : "",
       manuscriptName: manuscript?.name || activeCreatorBook?.manuscript?.name || creatorApplicationData?.book?.manuscript?.name || "",
       coverName: cover?.name || activeCreatorBook?.cover?.name || creatorApplicationData?.book?.cover?.name || "",
     },
@@ -2257,7 +2332,6 @@ function renderCreatorReview() {
     ["Language", title.language],
     ["ISBN", title.isbn || "Not provided"],
     ["Category", title.categories || "Not added"],
-    ["Availability", title.territories],
     ["Book file", title.manuscriptName || "Not uploaded"],
     ["Cover", title.coverName || "Not uploaded"],
   ];
@@ -2341,6 +2415,7 @@ creatorDraftButton?.addEventListener("click", async () => {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Draft could not be saved.");
       activeCreatorBook = result.book;
+      await updateCreatorDuplicateNote(getCreatorFormData().book, activeCreatorBook.id);
       await uploadCreatorFiles(activeCreatorBook.id);
       const index = creatorBooks.findIndex((book) => book.id === activeCreatorBook.id);
       if (index >= 0) creatorBooks[index] = activeCreatorBook;
@@ -2361,6 +2436,7 @@ creatorDraftButton?.addEventListener("click", async () => {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Draft could not be saved.");
     creatorApplicationData = result;
+    await updateCreatorDuplicateNote(getCreatorFormData().book, creatorApplicationData.book?.id || "");
     await uploadCreatorFiles(creatorApplicationData.application.id);
     creatorFormMessage.textContent = "Draft saved.";
     populateCreatorForm();
@@ -2385,6 +2461,7 @@ creatorTitleForm?.addEventListener("submit", async (event) => {
       const saveResult = await saveResponse.json();
       if (!saveResponse.ok) throw new Error(saveResult.error || "Book could not be saved.");
       activeCreatorBook = saveResult.book;
+      await updateCreatorDuplicateNote(getCreatorFormData().book, bookId);
       await uploadCreatorFiles(bookId);
       const submitResponse = await fetch(`/api/author/books/${bookId}/submit`, { method: "POST" });
       const submitResult = await submitResponse.json();
@@ -2409,6 +2486,7 @@ creatorTitleForm?.addEventListener("submit", async (event) => {
     }
 
     creatorApplicationData = saveResult;
+    await updateCreatorDuplicateNote(getCreatorFormData().book, creatorApplicationData.book?.id || "");
     await uploadCreatorFiles(applicationId);
 
     const submitResponse = await fetch(

@@ -53,9 +53,12 @@
           Loading book...
         </p>
         <canvas class="reader-canvas" hidden></canvas>
+        <div class="reader-epub" hidden></div>
       </section>
     </main>
 
-    <script type="module" src="reader.js"></script>
+    <script src="vendor/epubjs/jszip.min.js"></script>
+    <script src="vendor/epubjs/epub.min.js"></script>
+    <script type="module" src="reader.js?v=20260915-upload"></script>
   </body>
 </html>

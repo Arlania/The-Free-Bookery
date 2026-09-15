@@ -9,6 +9,11 @@ const genreCount = document.querySelector("[data-admin-genre-count]");
 const otherGenreChoice = document.querySelector("[data-admin-other-genre-choice]");
 const otherGenreField = document.querySelector("[data-admin-other-genre]");
 const otherGenreInput = uploadForm?.elements.namedItem("otherGenre");
+const duplicateNote = document.querySelector("[data-admin-duplicate-note]");
+const duplicateConfirmation = document.querySelector("[data-admin-duplicate-confirmation]");
+const uploadCancel = document.querySelector("[data-admin-upload-cancel]");
+let activeBookId = null;
+let activeUploadRequest = null;
 
 function addContributor() {
   if (!contributorList || contributorList.childElementCount >= 9) return;
@@ -85,16 +90,90 @@ async function requestJson(url, options) {
   return result;
 }
 
-async function uploadFile(bookId, kind, file) {
-  return requestJson(`/api/author/books/${bookId}/files/${kind}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": fileContentType(file, kind),
-      "X-File-Name": encodeURIComponent(file.name),
-    },
-    body: file,
+function uploadFile(bookId, kind, file, validation) {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    activeUploadRequest = request;
+    uploadCancel.hidden = false;
+    request.open("PUT", `/api/author/books/${bookId}/files/${kind}`);
+    request.responseType = "json";
+    request.setRequestHeader("Content-Type", fileContentType(file, kind));
+    request.setRequestHeader("X-File-Name", encodeURIComponent(file.name));
+    request.setRequestHeader("X-Book-File-Validated", validation);
+    request.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable) return;
+      const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+      uploadStatus.textContent = `${kind === "cover" ? "Cover" : "Book file"} upload: ${percent}%`;
+    });
+    const finish = () => {
+      activeUploadRequest = null;
+      uploadCancel.hidden = true;
+    };
+    request.addEventListener("load", () => {
+      finish();
+      const result = request.response || {};
+      if (request.status >= 200 && request.status < 300) resolve(result);
+      else reject(new Error(result.error || "The file could not be uploaded."));
+    });
+    request.addEventListener("error", () => {
+      finish();
+      reject(new Error("The upload was interrupted. The draft is saved; retry when ready."));
+    });
+    request.addEventListener("abort", () => {
+      finish();
+      reject(new Error("Upload canceled. The draft is saved and can be retried."));
+    });
+    request.send(file);
   });
 }
+
+uploadCancel?.addEventListener("click", () => activeUploadRequest?.abort());
+
+async function checkDuplicates(bookId = null) {
+  const isbn = String(uploadForm?.elements.namedItem("isbn")?.value || "").trim();
+  const doi = String(uploadForm?.elements.namedItem("doi")?.value || "").trim();
+  if (!bookId && !isbn && !doi) {
+    duplicateNote.hidden = true;
+    duplicateConfirmation.hidden = true;
+    duplicateConfirmation.querySelector("input").required = false;
+    return { hasDuplicates: false, count: 0, matches: [] };
+  }
+  const parameters = new URLSearchParams({ isbn, doi });
+  const result = bookId
+    ? await requestJson(`/api/author/books/${bookId}/duplicate-check`)
+    : await requestJson(`/api/books/duplicate-check?${parameters}`);
+  duplicateNote.hidden = !result.hasDuplicates;
+  duplicateConfirmation.hidden = !result.hasDuplicates;
+  duplicateConfirmation.querySelector("input").required = result.hasDuplicates;
+  if (!result.hasDuplicates) {
+    duplicateNote.textContent = "";
+    duplicateConfirmation.querySelector("input").checked = false;
+    return result;
+  }
+  duplicateNote.replaceChildren();
+  const heading = document.createElement("strong");
+  heading.textContent = "Matching ISBN or DOI found";
+  const message = document.createElement("p");
+  message.textContent = "Confirm that this upload is a legitimate new edition or replacement before publishing.";
+  const list = document.createElement("ul");
+  (result.matches || []).forEach((match) => {
+    const item = document.createElement("li");
+    item.textContent = `${match.title || "Untitled"} — ${match.author || "Unknown author"} (${match.status})`;
+    list.append(item);
+  });
+  duplicateNote.append(heading, message, list);
+  return result;
+}
+
+[uploadForm?.elements.namedItem("isbn"), uploadForm?.elements.namedItem("doi")]
+  .filter(Boolean)
+  .forEach((input) => input.addEventListener("change", () => {
+    checkDuplicates().catch((error) => {
+      console.warn("Duplicate lookup failed", error);
+      duplicateNote.hidden = true;
+      duplicateConfirmation.hidden = true;
+    });
+  }));
 
 async function initializeUploadAccess() {
   try {
@@ -139,20 +218,24 @@ uploadForm?.addEventListener("submit", async (event) => {
     return;
   }
 
-  let bookId = null;
   uploadSubmit.disabled = true;
-  uploadStatus.textContent = "Creating book draft…";
+  uploadStatus.textContent = activeBookId ? "Updating saved draft…" : "Creating book draft…";
 
   try {
+    uploadStatus.textContent = "Validating book file…";
+    const manuscriptValidation = await window.FreeBookeryCover.validateManuscript(manuscript);
     if (!(cover instanceof File) || !cover.size) {
       uploadStatus.textContent = "Creating a cover…";
       cover = await window.FreeBookeryCover.create(manuscript, data.get("title"));
     }
-    const created = await requestJson("/api/author/books", { method: "POST" });
-    bookId = created.book.id;
+    const coverValidation = await window.FreeBookeryCover.validateCover(cover);
+    if (!activeBookId) {
+      const created = await requestJson("/api/author/books", { method: "POST" });
+      activeBookId = created.book.id;
+    }
 
     uploadStatus.textContent = "Saving book details…";
-    await requestJson(`/api/author/books/${bookId}`, {
+    await requestJson(`/api/author/books/${activeBookId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -169,24 +252,37 @@ uploadForm?.addEventListener("submit", async (event) => {
           doi: data.get("doi"),
           series: data.get("series"),
           edition: data.get("edition"),
-          territories: data.get("territories"),
           accessibility: data.get("accessibility"),
           rightsConfirmation: Boolean(data.get("rights")),
+          rightsBasis: data.get("rights") === "public-domain" ? "public_domain" : "owned_or_administered",
         },
       }),
     });
 
+    const duplicates = await checkDuplicates(activeBookId);
+    if (duplicates.hasDuplicates && !data.get("confirmDuplicate")) {
+      uploadStatus.textContent = "Review and confirm the matching ISBN or DOI before publishing. Your draft has been saved.";
+      duplicateConfirmation.querySelector("input").focus();
+      return;
+    }
+
     uploadStatus.textContent = "Uploading book file…";
-    await uploadFile(bookId, "manuscript", manuscript);
+    await uploadFile(activeBookId, "manuscript", manuscript, manuscriptValidation);
     uploadStatus.textContent = "Uploading cover image…";
-    await uploadFile(bookId, "cover", cover);
+    await uploadFile(activeBookId, "cover", cover, coverValidation);
     uploadStatus.textContent = "Publishing book…";
-    const published = await requestJson(`/api/admin/books/${bookId}/publish`, { method: "POST" });
+    const published = await requestJson(`/api/admin/books/${activeBookId}/publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmDuplicate: Boolean(data.get("confirmDuplicate")) }),
+    });
 
     uploadForm.reset();
     uploadForm.elements.language.value = "English";
     contributorList.replaceChildren();
     updateGenres();
+    duplicateNote.hidden = true;
+    duplicateConfirmation.hidden = true;
     uploadStatus.replaceChildren(
       document.createTextNode(`“${published.book.title}” is now live. `),
       Object.assign(document.createElement("a"), {
@@ -194,12 +290,11 @@ uploadForm?.addEventListener("submit", async (event) => {
         textContent: "View in catalog",
       })
     );
-    bookId = null;
+    activeBookId = null;
   } catch (error) {
-    uploadStatus.textContent = error.message;
-    if (bookId) {
-      await fetch(`/api/author/books/${bookId}`, { method: "DELETE" }).catch(() => null);
-    }
+    uploadStatus.textContent = activeBookId
+      ? `${error.message} Your draft has been kept so you can retry.`
+      : error.message;
   } finally {
     uploadSubmit.disabled = false;
   }

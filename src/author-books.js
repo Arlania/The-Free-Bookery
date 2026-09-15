@@ -1,4 +1,14 @@
 import { requireRolesOrOwner } from "./authorization.js";
+import {
+  categoriesAreValid,
+  doiIsValid,
+  findDuplicateBooks,
+  isbnIsValid,
+  normalizeDoi,
+  normalizeIsbn,
+  normalizeRightsBasis,
+  storedBookFilesExist,
+} from "./book-metadata.js";
 
 const editableStatuses = new Set(["draft", "changes_requested"]);
 const limits = {
@@ -40,25 +50,38 @@ function clean(value, field) {
 
 function normalize(body) {
   const book = body?.book || body || {};
+  const isbn = clean(book.isbn, "isbn");
+  const doi = clean(book.doi, "doi");
+  const categories = clean(book.categories, "categories");
+  const rightsBasis = normalizeRightsBasis(book.rightsBasis);
+  if (!isbnIsValid(isbn)) throw error("Enter a valid ISBN-10 or ISBN-13.", 400);
+  if (!doiIsValid(doi)) throw error("Enter a valid DOI.", 400);
+  if (categories && !categoriesAreValid(categories)) {
+    throw error("Choose between one and three book genres.", 400);
+  }
+  if (!rightsBasis && book.rightsConfirmation === true) {
+    throw error("Choose the publishing-rights basis.", 400);
+  }
   return {
     title: clean(book.title, "title"), subtitle: clean(book.subtitle, "subtitle"),
     language: clean(book.language || "English", "language"),
-    isbn: clean(book.isbn, "isbn"), doi: clean(book.doi, "doi"),
+    isbn, doi,
     series: clean(book.series, "series"), edition: clean(book.edition, "edition"),
     author: clean(book.author, "author"), contributors: clean(book.contributors, "contributors"),
     description: clean(book.description, "description"),
-    categories: clean(book.categories, "categories"), keywords: clean(book.keywords, "keywords"),
+    categories, keywords: clean(book.keywords, "keywords"),
     readingAge: clean(book.readingAge, "readingAge"), explicit: book.explicit === true,
-    territories: clean(book.territories || "Worldwide", "territories"),
+    territories: "Worldwide",
     accessibility: clean(book.accessibility, "accessibility"),
-    rightsConfirmation: book.rightsConfirmation === true,
+    rightsBasis,
   };
 }
 
 const select = `SELECT id, owner_user_id, title, subtitle, language, isbn, doi,
  series_name, edition, author_name, contributors, description, categories,
  keywords, reading_age, explicit_content, territories, accessibility_notes,
- rights_statement, status, submitted_at, reviewed_at, admin_message,
+ rights_statement, rights_basis, isbn_normalized, doi_normalized,
+ manuscript_validation, status, submitted_at, reviewed_at, admin_message,
  book_object_key, manuscript_original_name, manuscript_content_type,
  manuscript_size, manuscript_uploaded_at, cover_object_key,
  cover_original_name, cover_content_type, cover_size, cover_uploaded_at,
@@ -91,7 +114,8 @@ function serialize(row) {
     categories: row.categories || "", keywords: row.keywords || "",
     readingAge: row.reading_age || "", explicit: row.explicit_content === 1,
     territories: row.territories || "Worldwide", accessibility: row.accessibility_notes || "",
-    rightsConfirmation: Boolean(row.rights_statement), adminMessage: row.admin_message,
+    rightsConfirmation: Boolean(row.rights_statement), rightsBasis: row.rights_basis || "",
+    adminMessage: row.admin_message,
     submittedAt: row.submitted_at, reviewedAt: row.reviewed_at,
     createdAt: row.created_at, updatedAt: row.updated_at,
     manuscript: file("manuscript"), cover: file("cover"),
@@ -121,14 +145,16 @@ async function update(env, userId, id, book) {
     return { response: error("This book cannot currently be edited.", 409) };
   }
   await env.DB.prepare(`UPDATE books SET title = ?, subtitle = ?, language = ?, isbn = ?, doi = ?,
-    series_name = ?, edition = ?, author_name = ?, contributors = ?, description = ?,
+    isbn_normalized = ?, doi_normalized = ?, series_name = ?, edition = ?, author_name = ?, contributors = ?, description = ?,
     categories = ?, keywords = ?, reading_age = ?, explicit_content = ?, territories = ?,
-    accessibility_notes = ?, rights_statement = ?, updated_at = CURRENT_TIMESTAMP
+    accessibility_notes = ?, rights_statement = ?, rights_basis = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND owner_user_id = ?`)
-    .bind(book.title, book.subtitle, book.language, book.isbn, book.doi, book.series,
+    .bind(book.title, book.subtitle, book.language, book.isbn, book.doi,
+      normalizeIsbn(book.isbn) || null, normalizeDoi(book.doi) || null, book.series,
       book.edition, book.author, book.contributors, book.description, book.categories,
       book.keywords, book.readingAge, book.explicit ? 1 : 0, book.territories,
-      book.accessibility, book.rightsConfirmation ? "Confirmed by author" : "", id, userId).run();
+      book.accessibility, book.rightsBasis ? "Confirmed by author" : "",
+      book.rightsBasis || null, id, userId).run();
   return { row: await findBook(env, userId, id) };
 }
 
@@ -138,8 +164,9 @@ function missingForSubmission(row) {
   if (!row.author_name) missing.push("primary author");
   if (!row.description) missing.push("description");
   if (!row.categories) missing.push("categories");
-  if (!row.rights_statement) missing.push("rights confirmation");
+  if (!row.rights_statement || !row.rights_basis) missing.push("rights confirmation");
   if (!row.book_object_key) missing.push("book file");
+  if (row.book_object_key && !row.manuscript_validation) missing.push("validated book file");
   if (!row.cover_object_key) missing.push("cover image");
   return missing;
 }
@@ -152,6 +179,9 @@ async function submit(env, userId, id) {
   }
   const missing = missingForSubmission(current);
   if (missing.length) return { response: error(`Complete these fields: ${missing.join(", ")}.`, 400) };
+  if (!await storedBookFilesExist(env, current)) {
+    return { response: error("The uploaded manuscript or cover is missing. Upload it again before submitting.", 409) };
+  }
   await env.DB.batch([
     env.DB.prepare(`UPDATE books SET status = 'pending', submitted_at = CURRENT_TIMESTAMP,
       reviewed_at = NULL, reviewed_by = NULL, admin_message = NULL,
@@ -171,10 +201,13 @@ async function remove(env, userId, id) {
   if (!["draft", "changes_requested", "rejected"].includes(current.status)) {
     return { response: error("Only editable or rejected books can be deleted.", 409) };
   }
+  const keys = [current.book_object_key, current.cover_object_key].filter(Boolean);
+  if (keys.length) {
+    try { await env.PRIVATE_BOOK_FILES.delete(keys); }
+    catch { return { response: error("Private files could not be removed. Try again.", 503) }; }
+  }
   await env.DB.prepare(`DELETE FROM books WHERE id = ? AND owner_user_id = ?`)
     .bind(id, userId).run();
-  const keys = [current.book_object_key, current.cover_object_key].filter(Boolean);
-  if (keys.length) await env.PRIVATE_BOOK_FILES.delete(keys);
   return { deleted: true };
 }
 
@@ -215,13 +248,31 @@ export async function handleAuthorBookRequest(request, env, executionContext) {
     return Response.json({ book: serialize(await create(env, userId)) }, { status: 201 });
   }
 
-  const match = url.pathname.match(/^\/api\/author\/books\/([0-9a-f-]+)(\/(submit|withdraw|unpublish))?$/i);
+  const match = url.pathname.match(/^\/api\/author\/books\/([0-9a-f-]+)(\/(submit|withdraw|unpublish|duplicate-check))?$/i);
   if (!match) return error("Not found.", 404);
   const id = match[1];
   if (request.method !== "GET" && !trustedOrigin(request, env)) return error("Invalid origin.", 403);
   if (!match[2] && request.method === "GET") {
     const row = await findBook(env, userId, id);
     return row ? Response.json({ book: serialize(row) }) : error("Book not found.", 404);
+  }
+  if (match[3] === "duplicate-check" && request.method === "GET") {
+    const row = await findBook(env, userId, id);
+    if (!row) return error("Book not found.", 404);
+    const matches = await findDuplicateBooks(env, row);
+    const canSeeDetails = authorization.account.accountRole === "owner" || authorization.account.profile.role === "admin";
+    return Response.json({
+      hasDuplicates: matches.length > 0,
+      count: matches.length,
+      matches: canSeeDetails ? matches.map((item) => ({
+        id: item.id,
+        title: item.title,
+        author: item.author_name,
+        isbn: item.isbn,
+        doi: item.doi,
+        status: item.status,
+      })) : [],
+    });
   }
   if (!match[2] && request.method === "PATCH") {
     let body;
