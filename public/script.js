@@ -1684,8 +1684,7 @@ saveBookForm?.addEventListener("submit", async (event) => {
 });
 
 function hasApprovedCreatorAccess() {
-  return currentAccount?.accountRole === "owner" ||
-    currentAccount?.role === "author" ||
+  return currentAccount?.role === "author" ||
     currentAccount?.role === "admin";
 }
 
