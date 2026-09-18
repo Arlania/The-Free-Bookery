@@ -514,8 +514,7 @@ function setupNotificationDrawer(bell) {
 function updateUserState() {
   const loggedIn = Boolean(currentAccount?.authenticated);
   const displayName = currentAccount?.name || currentAccount?.email || "Guest";
-  const showUploadBookNavigation = loggedIn &&
-    (currentAccount?.accountRole === "owner" || currentAccount?.role === "admin");
+  const showUploadBookNavigation = loggedIn && currentAccount?.role === "admin";
 
   document.querySelectorAll(
     '.nav-left a[data-upload-book-navigation], .nav-left a[href="#about"], .nav-left a[href="index.html#about"]'
