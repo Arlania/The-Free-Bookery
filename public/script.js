@@ -148,6 +148,7 @@ let creatorFormStep = 1;
 let creatorAutosaveTimer = 0;
 let creatorAutosavePaused = false;
 let creatorAutosavePromise = Promise.resolve();
+let creatorDraftCreatedForFlow = false;
 let currentAccount = null;
 let accountStateResolved = false;
 let creatorApplicationData = null;
@@ -1869,6 +1870,7 @@ function renderCreatorDashboard() {
       card.tabIndex = 0;
       card.setAttribute("role", "button");
       card.addEventListener("click", () => {
+        creatorDraftCreatedForFlow = false;
         activeCreatorBook = title;
         setCreatorTitleModal(true);
       });
@@ -1920,14 +1922,16 @@ function creatorSubmissionMode() {
 }
 
 function creatorStepSequence() {
-  if (hasApprovedCreatorAccess()) return [4, 5, 6, 7];
+  if (hasApprovedCreatorAccess()) {
+    return creatorSubmissionMode() === "bulk" ? [4, 6] : [4, 5, 6, 7];
+  }
   return creatorSubmissionMode() === "bulk" ? [1, 2, 3, 4, 6, 7] : [1, 2, 3, 4, 5, 6, 7];
 }
 
 function updateCreatorConditionalUI() {
   if (!creatorTitleForm) return;
   const creatorType = String(new FormData(creatorTitleForm).get("creatorType") || "author");
-  const bulk = creatorSubmissionMode() === "bulk" && !hasApprovedCreatorAccess();
+  const bulk = creatorSubmissionMode() === "bulk";
   const heading = document.querySelector("[data-creator-profile-heading]");
   const copy = document.querySelector("[data-creator-profile-copy]");
   const legalLabel = document.querySelector("[data-creator-legal-label]");
@@ -1936,11 +1940,17 @@ function updateCreatorConditionalUI() {
   if (legalLabel) legalLabel.textContent = creatorType === "publisher" ? "Publisher name" : "Author name";
   document.querySelector("[data-individual-files]").hidden = bulk;
   document.querySelector("[data-bulk-files]").hidden = !bulk;
+  const bulkContact = document.querySelector("[data-bulk-contact]");
+  const bulkIntake = document.querySelector("[data-bulk-intake]");
+  if (bulkContact) bulkContact.hidden = !(bulk && hasApprovedCreatorAccess());
+  if (bulkIntake) bulkIntake.hidden = bulk && hasApprovedCreatorAccess();
   const filesHeading = document.querySelector("[data-creator-files-heading]");
   const filesCopy = document.querySelector("[data-creator-files-copy]");
   if (filesHeading) filesHeading.textContent = bulk ? "Share your catalog." : "Upload the book.";
   if (filesCopy) filesCopy.textContent = bulk
-    ? "Send a catalog file or shared link. Admins will coordinate the readable book files with you."
+    ? (hasApprovedCreatorAccess()
+      ? "Bulk intake is arranged directly with our team and does not create another review item."
+      : "Send a catalog file or shared link. Admins will coordinate the readable book files with you.")
     : "PDF and EPUB are the reader formats Free Bookery can validate and publish.";
   const bookType = String(new FormData(creatorTitleForm).get("bookType") || "");
   document.querySelectorAll("[data-genre-type]").forEach((label) => {
@@ -1965,6 +1975,9 @@ function updateCreatorFormStep(step) {
   document.querySelectorAll("[data-creator-step-indicator]").forEach((item) => {
     const itemStep = Number(item.dataset.creatorStepIndicator);
     item.hidden = !sequence.includes(itemStep);
+    const visibleIndex = sequence.indexOf(itemStep);
+    const number = item.querySelector("span");
+    if (number && visibleIndex >= 0) number.textContent = String(visibleIndex + 1);
     item.classList.toggle("is-active", itemStep === creatorFormStep);
     item.classList.toggle("is-complete", itemStep < creatorFormStep);
   });
@@ -1972,6 +1985,13 @@ function updateCreatorFormStep(step) {
   if (creatorBackButton) creatorBackButton.hidden = creatorFormStep === sequence[0];
   if (creatorNextButton) creatorNextButton.hidden = creatorFormStep === sequence.at(-1);
   if (creatorSubmitButton) creatorSubmitButton.hidden = creatorFormStep !== sequence.at(-1);
+  if (creatorDraftButton) creatorDraftButton.hidden = hasApprovedCreatorAccess() && creatorSubmissionMode() === "bulk";
+  if (creatorSubmitButton) creatorSubmitButton.textContent = hasApprovedCreatorAccess() && creatorSubmissionMode() === "bulk"
+    ? "Return to dashboard" : "Submit for review";
+
+  const activePanel = creatorTitleForm.querySelector(`[data-creator-step="${creatorFormStep}"]`);
+  const questionNumber = activePanel?.querySelector(".creator-question-number");
+  if (questionNumber) questionNumber.textContent = `${String(sequence.indexOf(creatorFormStep) + 1).padStart(2, "0")} →`;
 
   if (creatorFormStep === sequence.at(-1)) renderCreatorReview();
   requestAnimationFrame(() => {
@@ -1989,7 +2009,7 @@ function setCreatorTitleModal(open) {
     const laterBook = hasApprovedCreatorAccess();
     const title = document.querySelector("#creator-form-title");
     if (title) title.textContent = laterBook ? "Submit a book" : "Author application & first book";
-    ["creatorType", "legalName", "penName", "website", "biography", "verificationDetails", "submissionMode"].forEach((name) => {
+    ["creatorType", "legalName", "penName", "website", "biography", "verificationDetails"].forEach((name) => {
       creatorTitleForm.querySelectorAll(`[name="${name}"]`).forEach((field) => { field.disabled = laterBook; });
     });
     populateCreatorForm();
@@ -2385,7 +2405,7 @@ function creatorStepIsValid() {
       return false;
     }
   }
-  if (creatorFormStep === 6 && creatorSubmissionMode() === "bulk") {
+  if (creatorFormStep === 6 && creatorSubmissionMode() === "bulk" && !hasApprovedCreatorAccess()) {
     const application = creatorApplicationData?.application;
     const link = String(creatorTitleForm.elements.bulkLink?.value || "").trim();
     const file = creatorTitleForm.elements.bulkFile?.files?.[0];
@@ -2495,6 +2515,7 @@ document.querySelectorAll("[data-creator-title-open]").forEach((button) => {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "A new draft could not be started.");
       activeCreatorBook = result.book;
+      creatorDraftCreatedForFlow = true;
       creatorBooks.unshift(result.book);
       renderCreatorDashboard();
       setCreatorTitleModal(true);
@@ -2511,6 +2532,7 @@ document
   .querySelector("[data-creator-title-close]")
   ?.addEventListener("click", async () => {
     await saveCreatorDraft(false).catch(() => {});
+    await discardUnusedCreatorDraftForBulk();
     setCreatorTitleModal(false);
   });
 
@@ -2548,6 +2570,10 @@ creatorBackButton?.addEventListener("click", () => {
 async function saveCreatorDraft(includeFiles = false) {
   creatorAutosavePromise = creatorAutosavePromise.catch(() => {}).then(async () => {
     if (!creatorTitleModal || creatorTitleModal.hidden || creatorAutosavePaused) return;
+    if (hasApprovedCreatorAccess() && creatorSubmissionMode() === "bulk") {
+      creatorFormMessage.textContent = "Bulk catalogs are arranged directly with our team.";
+      return;
+    }
     creatorFormMessage.textContent = includeFiles ? "Saving draft…" : "Saving…";
     if (hasApprovedCreatorAccess()) {
       if (!activeCreatorBook) throw new Error("Start a book draft first.");
@@ -2589,6 +2615,10 @@ async function saveCreatorDraft(includeFiles = false) {
 
 function scheduleCreatorAutosave() {
   if (creatorAutosavePaused || !creatorTitleModal || creatorTitleModal.hidden) return;
+  if (hasApprovedCreatorAccess() && creatorSubmissionMode() === "bulk") {
+    creatorFormMessage.textContent = "Bulk catalogs are arranged directly with our team.";
+    return;
+  }
   window.clearTimeout(creatorAutosaveTimer);
   creatorFormMessage.textContent = "Changes not saved yet…";
   creatorAutosaveTimer = window.setTimeout(() => {
@@ -2596,9 +2626,23 @@ function scheduleCreatorAutosave() {
   }, 900);
 }
 
+async function discardUnusedCreatorDraftForBulk() {
+  if (!hasApprovedCreatorAccess() || creatorSubmissionMode() !== "bulk" ||
+      !creatorDraftCreatedForFlow || !activeCreatorBook || activeCreatorBook.title ||
+      activeCreatorBook.manuscript) return;
+  const bookId = activeCreatorBook.id;
+  const response = await fetch(`/api/author/books/${bookId}`, { method: "DELETE" });
+  if (!response.ok) return;
+  creatorBooks = creatorBooks.filter((book) => book.id !== bookId);
+  activeCreatorBook = null;
+  creatorDraftCreatedForFlow = false;
+  renderCreatorDashboard();
+}
+
 creatorTitleForm?.addEventListener("input", scheduleCreatorAutosave);
 creatorTitleForm?.addEventListener("change", (event) => {
-  updateCreatorConditionalUI();
+  if (event.target.name === "submissionMode") updateCreatorFormStep(creatorFormStep);
+  else updateCreatorConditionalUI();
   if (event.target.type === "file") {
     saveCreatorDraft(true).catch((error) => { creatorFormMessage.textContent = error.message; });
   } else scheduleCreatorAutosave();
@@ -2617,6 +2661,12 @@ creatorTitleForm?.addEventListener("submit", async (event) => {
   if (!creatorStepIsValid()) return;
 
   try {
+    if (hasApprovedCreatorAccess() && creatorSubmissionMode() === "bulk") {
+      await discardUnusedCreatorDraftForBulk();
+      setCreatorTitleModal(false);
+      renderCreatorDashboard();
+      return;
+    }
     if (hasApprovedCreatorAccess()) {
       if (!activeCreatorBook) throw new Error("Start a book draft first.");
       const bookId = activeCreatorBook.id;

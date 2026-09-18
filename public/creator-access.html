@@ -298,7 +298,7 @@
           </section>
 
           <section class="creator-form-step" data-creator-step="4" hidden>
-            <div class="creator-form-intro"><span class="creator-question-number">04 →</span><h3>How are you submitting books?</h3><p>Every title remains worldwide with no territory restrictions. Admins verify the rights evidence before approval.</p></div>
+            <div class="creator-form-intro"><span class="creator-question-number">04 →</span><h3>How are you submitting books?</h3></div>
             <div class="creator-choice-grid">
               <label class="creator-choice-card"><input name="submissionMode" type="radio" value="individual" required /><span><b>A</b><strong>One book</strong><small>Recommended for Authors. Enter metadata and upload a readable PDF or EPUB.</small></span></label>
               <label class="creator-choice-card"><input name="submissionMode" type="radio" value="bulk" /><span><b>B</b><strong>Bulk catalog</strong><small>Recommended for Publishers. Send a spreadsheet, PDF catalog, or shared link for admin-assisted intake.</small></span></label>
@@ -338,9 +338,18 @@
               <p class="creator-reader-theme-note">A file must open successfully and its first page must render into a visible preview so we can confirm it is readable—not blank, corrupted, encrypted, or unsupported. Files stay private during review.</p>
             </div>
             <div data-bulk-files hidden>
-              <div class="creator-form-grid"><label class="creator-form-wide">Shared catalog or folder link<input name="bulkLink" type="url" maxlength="1000" placeholder="https://"></label></div>
-              <label class="creator-upload-card"><span class="creator-upload-icon">LIST</span><strong>Catalog file</strong><span>PDF, XLS, XLSX, ODS, CSV, or TSV · up to 95 MB</span><input name="bulkFile" type="file" accept=".pdf,.xls,.xlsx,.ods,.csv,.tsv,application/pdf,text/csv,text/tab-separated-values"><span class="creator-existing-file" data-creator-existing-bulk></span></label>
-              <p class="creator-reader-theme-note">Include ISBN, title, author/contributors, book-file location, and cover for each title. Language defaults to English and age range defaults to Adult. Categories, description, series, and edition are optional. An Admin will follow up about transferring the readable PDF/EPUB files.</p>
+              <div data-bulk-intake>
+                <div class="creator-form-grid"><label class="creator-form-wide">Shared catalog or folder link<input name="bulkLink" type="url" maxlength="1000" placeholder="https://"></label></div>
+                <label class="creator-upload-card"><span class="creator-upload-icon">LIST</span><strong>Catalog file</strong><span>PDF, XLS, XLSX, ODS, CSV, or TSV · up to 95 MB</span><input name="bulkFile" type="file" accept=".pdf,.xls,.xlsx,.ods,.csv,.tsv,application/pdf,text/csv,text/tab-separated-values"><span class="creator-existing-file" data-creator-existing-bulk></span></label>
+                <p class="creator-reader-theme-note">Include ISBN, title, author/contributors, book-file location, and cover for each title. Language defaults to English and age range defaults to Adult. Categories, description, series, and edition are optional. An Admin will follow up about transferring the readable PDF/EPUB files.</p>
+              </div>
+              <div class="creator-bulk-contact" data-bulk-contact hidden>
+                <span class="creator-upload-icon" aria-hidden="true">BULK</span>
+                <h4>Let’s arrange your catalog transfer.</h4>
+                <p>Bulk catalogs are handled directly with the Free Bookery team so we can agree on the safest way to transfer your metadata, covers, and readable PDF or EPUB files.</p>
+                <a href="mailto:info@freebookery.org?subject=Bulk%20catalog%20intake">Contact info@freebookery.org</a>
+                <small>This contact path does not create a separate review submission.</small>
+              </div>
             </div>
           </section>
 
