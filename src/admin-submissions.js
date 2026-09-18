@@ -89,7 +89,10 @@ async function readDecision(request) {
 
 const authorSelect = `SELECT
   a.id, a.user_id, a.creator_type, a.status, a.legal_name, a.pen_name,
-  a.biography, a.website, a.verification_details, a.rights_confirmation,
+  a.biography, a.website, a.verification_details, a.social_links,
+  a.no_online_presence, a.submission_mode, a.policy_confirmation, a.bulk_link,
+  a.bulk_object_key, a.bulk_original_name, a.bulk_content_type, a.bulk_size,
+  a.bulk_uploaded_at, a.rights_confirmation,
   a.submitted_at, a.reviewed_at, a.admin_message,
   u.email, p.display_name, p.role,
   b.id AS first_book_id, b.title AS first_book_title, b.status AS first_book_status
@@ -122,9 +125,21 @@ function serializeAuthor(row) {
       biography: row.biography || "",
       website: row.website || "",
       verificationDetails: row.verification_details || "",
+      socialLinks: JSON.parse(row.social_links || "[]"),
+      noOnlinePresence: row.no_online_presence === 1,
+      submissionMode: row.submission_mode || "individual",
+      policyConfirmation: row.policy_confirmation === 1,
+      bulkLink: row.bulk_link || "",
+      bulkFile: row.bulk_object_key ? {
+        name: row.bulk_original_name,
+        contentType: row.bulk_content_type,
+        size: row.bulk_size,
+        uploadedAt: row.bulk_uploaded_at,
+        url: `/api/creator-applications/${row.id}/files/bulk`,
+      } : null,
       rightsConfirmation: row.rights_confirmation === 1,
     },
-    firstBook: row.first_book_id ? {
+    firstBook: row.submission_mode !== "bulk" && row.first_book_id ? {
       id: row.first_book_id,
       title: row.first_book_title || "Untitled book",
       status: row.first_book_status,
@@ -179,6 +194,10 @@ function serializeBook(row) {
       contributors: row.contributors || "",
       description: row.description || "",
       categories: row.categories || "",
+      bookType: row.book_type || "",
+      sourceUrl: row.source_url || "",
+      readingAge: row.reading_age || "Adult",
+      keywords: row.keywords || "",
       territories: row.territories || "Worldwide",
       accessibility: row.accessibility_notes || "",
       manuscript: file("manuscript"),

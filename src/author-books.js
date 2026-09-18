@@ -15,7 +15,7 @@ const limits = {
   title: 300, subtitle: 300, language: 80, isbn: 40, doi: 160,
   series: 200, edition: 80, author: 300, contributors: 1000,
   description: 4000, categories: 500, keywords: 1000, readingAge: 100,
-  territories: 200, accessibility: 1000,
+  territories: 200, accessibility: 1000, bookType: 20, sourceUrl: 1000,
 };
 
 function error(message, status) {
@@ -54,8 +54,8 @@ function normalize(body) {
   const doi = clean(book.doi, "doi");
   const categories = clean(book.categories, "categories");
   const rightsBasis = normalizeRightsBasis(book.rightsBasis);
-  if (!isbnIsValid(isbn)) throw error("Enter a valid ISBN-10 or ISBN-13.", 400);
-  if (!doiIsValid(doi)) throw error("Enter a valid DOI.", 400);
+  const bookType = clean(book.bookType, "bookType");
+  if (bookType && !["fiction", "nonfiction"].includes(bookType)) throw error("Choose fiction or nonfiction.", 400);
   if (categories && !categoriesAreValid(categories)) {
     throw error("Choose between one and three book genres.", 400);
   }
@@ -74,13 +74,15 @@ function normalize(body) {
     territories: "Worldwide",
     accessibility: clean(book.accessibility, "accessibility"),
     rightsBasis,
+    bookType,
+    sourceUrl: clean(book.sourceUrl, "sourceUrl"),
   };
 }
 
 const select = `SELECT id, owner_user_id, title, subtitle, language, isbn, doi,
  series_name, edition, author_name, contributors, description, categories,
  keywords, reading_age, explicit_content, territories, accessibility_notes,
- rights_statement, rights_basis, isbn_normalized, doi_normalized,
+ rights_statement, rights_basis, isbn_normalized, doi_normalized, book_type, source_url,
  manuscript_validation, status, submitted_at, reviewed_at, admin_message,
  book_object_key, manuscript_original_name, manuscript_content_type,
  manuscript_size, manuscript_uploaded_at, cover_object_key,
@@ -114,6 +116,7 @@ function serialize(row) {
     categories: row.categories || "", keywords: row.keywords || "",
     readingAge: row.reading_age || "", explicit: row.explicit_content === 1,
     territories: row.territories || "Worldwide", accessibility: row.accessibility_notes || "",
+    bookType: row.book_type || "", sourceUrl: row.source_url || "",
     rightsConfirmation: Boolean(row.rights_statement), rightsBasis: row.rights_basis || "",
     adminMessage: row.admin_message,
     submittedAt: row.submitted_at, reviewedAt: row.reviewed_at,
@@ -147,14 +150,14 @@ async function update(env, userId, id, book) {
   await env.DB.prepare(`UPDATE books SET title = ?, subtitle = ?, language = ?, isbn = ?, doi = ?,
     isbn_normalized = ?, doi_normalized = ?, series_name = ?, edition = ?, author_name = ?, contributors = ?, description = ?,
     categories = ?, keywords = ?, reading_age = ?, explicit_content = ?, territories = ?,
-    accessibility_notes = ?, rights_statement = ?, rights_basis = ?, updated_at = CURRENT_TIMESTAMP
+    accessibility_notes = ?, rights_statement = ?, rights_basis = ?, book_type = ?, source_url = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND owner_user_id = ?`)
     .bind(book.title, book.subtitle, book.language, book.isbn, book.doi,
       normalizeIsbn(book.isbn) || null, normalizeDoi(book.doi) || null, book.series,
       book.edition, book.author, book.contributors, book.description, book.categories,
       book.keywords, book.readingAge, book.explicit ? 1 : 0, book.territories,
       book.accessibility, book.rightsBasis ? "Confirmed by author" : "",
-      book.rightsBasis || null, id, userId).run();
+      book.rightsBasis || null, book.bookType || null, book.sourceUrl, id, userId).run();
   return { row: await findBook(env, userId, id) };
 }
 
@@ -162,8 +165,11 @@ function missingForSubmission(row) {
   const missing = [];
   if (!row.title) missing.push("book title");
   if (!row.author_name) missing.push("primary author");
-  if (!row.description) missing.push("description");
-  if (!row.categories) missing.push("categories");
+  if (!row.isbn) missing.push("ISBN");
+  else if (!isbnIsValid(row.isbn)) missing.push("a valid ISBN-10 or ISBN-13");
+  if (row.doi && !doiIsValid(row.doi)) missing.push("a valid DOI");
+  if (row.source_url && !/^https?:\/\//i.test(row.source_url)) missing.push("a valid existing book listing URL");
+  if (!row.book_type) missing.push("fiction or nonfiction");
   if (!row.rights_statement || !row.rights_basis) missing.push("rights confirmation");
   if (!row.book_object_key) missing.push("book file");
   if (row.book_object_key && !row.manuscript_validation) missing.push("validated book file");

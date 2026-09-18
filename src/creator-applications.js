@@ -18,6 +18,9 @@ const textLimits = {
   biography: 4000,
   website: 500,
   verificationDetails: 4000,
+  socialLinks: 6000,
+  submissionMode: 20,
+  bulkLink: 1000,
   title: 300,
   subtitle: 300,
   language: 80,
@@ -33,6 +36,8 @@ const textLimits = {
   readingAge: 100,
   territories: 200,
   accessibility: 1000,
+  bookType: 20,
+  sourceUrl: 1000,
 };
 
 function jsonError(message, status) {
@@ -86,10 +91,25 @@ function cleanText(value, field) {
   return text;
 }
 
+function normalizeSocialLinks(value) {
+  const links = Array.isArray(value) ? value : [];
+  if (links.length > 12) throw jsonError("Add no more than 12 online profiles.", 400);
+  const allowed = new Set(["website", "facebook", "youtube", "instagram", "tiktok", "other"]);
+  const normalized = links.map((item) => ({
+    platform: cleanText(item?.platform || "other", "creatorType").toLowerCase(),
+    url: cleanText(item?.url, "website"),
+  })).filter((item) => item.url);
+  for (const item of normalized) {
+    if (!allowed.has(item.platform)) throw jsonError("Choose a valid online-profile platform.", 400);
+  }
+  return normalized;
+}
+
 function normalizePayload(body) {
   const application = body?.application || {};
   const book = body?.book || {};
   const creatorType = cleanText(application.creatorType || "author", "creatorType");
+  const submissionMode = cleanText(application.submissionMode || "individual", "submissionMode");
 
   if (!["author", "publisher"].includes(creatorType)) {
     throw new Response(JSON.stringify({ error: "Invalid creator type." }), {
@@ -97,15 +117,21 @@ function normalizePayload(body) {
       headers: { "Content-Type": "application/json" },
     });
   }
+  if (!["individual", "bulk"].includes(submissionMode)) {
+    throw jsonError("Invalid submission mode.", 400);
+  }
 
   const website = cleanText(application.website, "website");
   const isbn = cleanText(book.isbn, "isbn");
   const doi = cleanText(book.doi, "doi");
   const categories = cleanText(book.categories, "categories");
   const rightsBasis = normalizeRightsBasis(book.rightsBasis || application.rightsBasis);
-  if (!websiteIsValid(website)) throw jsonError("Enter a valid website URL.", 400);
-  if (!isbnIsValid(isbn)) throw jsonError("Enter a valid ISBN-10 or ISBN-13.", 400);
-  if (!doiIsValid(doi)) throw jsonError("Enter a valid DOI.", 400);
+  const socialLinks = normalizeSocialLinks(application.socialLinks);
+  const bulkLink = cleanText(application.bulkLink, "bulkLink");
+  const bookType = cleanText(book.bookType, "bookType");
+  if (bookType && !["fiction", "nonfiction"].includes(bookType)) {
+    throw jsonError("Choose fiction or nonfiction.", 400);
+  }
   if (categories && !categoriesAreValid(categories)) {
     throw jsonError("Choose between one and three book genres.", 400);
   }
@@ -124,6 +150,11 @@ function normalizePayload(body) {
         application.verificationDetails,
         "verificationDetails"
       ),
+      socialLinks,
+      noOnlinePresence: application.noOnlinePresence === true,
+      submissionMode,
+      policyConfirmation: application.policyConfirmation === true,
+      bulkLink,
       rightsBasis,
     },
     book: {
@@ -143,6 +174,8 @@ function normalizePayload(body) {
       explicit: book.explicit === true,
       territories: "Worldwide",
       accessibility: cleanText(book.accessibility, "accessibility"),
+      bookType,
+      sourceUrl: cleanText(book.sourceUrl, "sourceUrl"),
     },
   };
 }
@@ -152,14 +185,17 @@ async function findApplication(env, userId, applicationId) {
   const statement = env.DB.prepare(
     `SELECT
        a.id, a.user_id, a.creator_type, a.status, a.legal_name, a.pen_name,
-       a.biography, a.website, a.verification_details,
+       a.biography, a.website, a.verification_details, a.social_links,
+       a.no_online_presence, a.submission_mode, a.policy_confirmation,
+       a.bulk_link, a.bulk_object_key, a.bulk_original_name,
+       a.bulk_content_type, a.bulk_size, a.bulk_uploaded_at,
        a.rights_confirmation, a.submitted_at, a.reviewed_at,
        a.admin_message, a.created_at, a.updated_at,
        b.id AS book_id, b.title, b.subtitle, b.language, b.isbn, b.doi,
        b.series_name, b.edition, b.author_name, b.contributors,
        b.description, b.categories, b.keywords, b.reading_age,
        b.explicit_content, b.territories, b.accessibility_notes,
-       b.isbn_normalized, b.doi_normalized, b.rights_basis,
+       b.isbn_normalized, b.doi_normalized, b.rights_basis, b.book_type, b.source_url,
        b.manuscript_validation,
        b.book_object_key, b.manuscript_original_name,
        b.manuscript_content_type, b.manuscript_size, b.manuscript_uploaded_at,
@@ -190,6 +226,18 @@ function serialize(row) {
       biography: row.biography || "",
       website: row.website || "",
       verificationDetails: row.verification_details || "",
+      socialLinks: JSON.parse(row.social_links || "[]"),
+      noOnlinePresence: row.no_online_presence === 1,
+      submissionMode: row.submission_mode || "individual",
+      policyConfirmation: row.policy_confirmation === 1,
+      bulkLink: row.bulk_link || "",
+      bulkFile: row.bulk_object_key ? {
+        name: row.bulk_original_name,
+        contentType: row.bulk_content_type,
+        size: row.bulk_size,
+        uploadedAt: row.bulk_uploaded_at,
+        url: `/api/creator-applications/${row.id}/files/bulk`,
+      } : null,
       rightsConfirmation: row.rights_confirmation === 1,
       rightsBasis: row.rights_basis || "",
       submittedAt: row.submitted_at,
@@ -218,6 +266,8 @@ function serialize(row) {
           explicit: row.explicit_content === 1,
           territories: row.territories || "Worldwide",
           accessibility: row.accessibility_notes || "",
+          bookType: row.book_type || "",
+          sourceUrl: row.source_url || "",
           rightsBasis: row.rights_basis || "",
           manuscript: row.book_object_key ? {
             name: row.manuscript_original_name,
@@ -288,6 +338,8 @@ async function updateDraft(env, userId, applicationId, payload) {
       `UPDATE author_applications SET
          creator_type = ?, legal_name = ?, pen_name = ?, biography = ?,
          website = ?, verification_details = ?, rights_confirmation = ?,
+         social_links = ?, no_online_presence = ?, submission_mode = ?,
+         policy_confirmation = ?, bulk_link = ?,
          updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND user_id = ?`
     ).bind(
@@ -298,6 +350,11 @@ async function updateDraft(env, userId, applicationId, payload) {
       application.website,
       application.verificationDetails,
       application.rightsBasis ? 1 : 0,
+      JSON.stringify(application.socialLinks),
+      application.noOnlinePresence ? 1 : 0,
+      application.submissionMode,
+      application.policyConfirmation ? 1 : 0,
+      application.bulkLink,
       applicationId,
       userId
     ),
@@ -308,7 +365,7 @@ async function updateDraft(env, userId, applicationId, payload) {
          edition = ?, author_name = ?, contributors = ?, description = ?,
          categories = ?, keywords = ?, reading_age = ?, explicit_content = ?,
          territories = ?, accessibility_notes = ?, rights_statement = ?,
-         rights_basis = ?,
+         rights_basis = ?, book_type = ?, source_url = ?,
          updated_at = CURRENT_TIMESTAMP
        WHERE application_id = ? AND owner_user_id = ?`
     ).bind(
@@ -332,6 +389,8 @@ async function updateDraft(env, userId, applicationId, payload) {
       book.accessibility,
       application.rightsBasis ? "Confirmed by applicant" : "",
       application.rightsBasis || null,
+      book.bookType || null,
+      book.sourceUrl,
       applicationId,
       userId
     ),
@@ -343,13 +402,28 @@ async function updateDraft(env, userId, applicationId, payload) {
 function validateSubmission(row) {
   const missing = [];
   if (!row.legal_name) missing.push("legal name");
-  if (!row.biography) missing.push("biography");
   if (!row.verification_details) missing.push("verification details");
+  if (!websiteIsValid(row.website || "")) missing.push("a valid website URL");
+  let socialLinks = [];
+  try { socialLinks = JSON.parse(row.social_links || "[]"); } catch { socialLinks = []; }
+  if (socialLinks.some((item) => !websiteIsValid(item.url || ""))) missing.push("valid online-profile URLs");
+  if (!row.no_online_presence && !row.website && !socialLinks.length) {
+    missing.push("an online presence or the no-online-presence confirmation");
+  }
   if (row.rights_confirmation !== 1 || !row.rights_basis) missing.push("rights confirmation");
+  if (row.policy_confirmation !== 1) missing.push("policy confirmation");
+  if (row.submission_mode === "bulk") {
+    if (!websiteIsValid(row.bulk_link || "")) missing.push("a valid bulk catalog link");
+    if (!row.bulk_link && !row.bulk_object_key) missing.push("bulk catalog link or file");
+    return missing;
+  }
   if (!row.title) missing.push("book title");
   if (!row.author_name) missing.push("primary author");
-  if (!row.description) missing.push("description");
-  if (!row.categories) missing.push("categories");
+  if (!row.isbn) missing.push("ISBN");
+  else if (!isbnIsValid(row.isbn)) missing.push("a valid ISBN-10 or ISBN-13");
+  if (row.doi && !doiIsValid(row.doi)) missing.push("a valid DOI");
+  if (row.source_url && !websiteIsValid(row.source_url)) missing.push("a valid existing book listing URL");
+  if (!row.book_type) missing.push("fiction or nonfiction");
   if (!row.book_object_key) missing.push("book file");
   if (row.book_object_key && !row.manuscript_validation) missing.push("validated book file");
   if (!row.cover_object_key) missing.push("cover image");
@@ -369,7 +443,7 @@ async function submitApplication(env, userId, applicationId) {
       error: jsonError(`Complete these fields: ${missing.join(", ")}.`, 400),
     };
   }
-  if (!await storedBookFilesExist(env, current)) {
+  if (current.submission_mode !== "bulk" && !await storedBookFilesExist(env, current)) {
     return { error: jsonError("The uploaded manuscript or cover is missing. Upload it again before submitting.", 409) };
   }
 
@@ -381,10 +455,11 @@ async function submitApplication(env, userId, applicationId) {
        WHERE id = ? AND user_id = ?`
     ).bind(applicationId, userId),
     env.DB.prepare(
-      `UPDATE books SET status = 'pending', submitted_at = CURRENT_TIMESTAMP,
+      `UPDATE books SET status = CASE WHEN ? = 'bulk' THEN 'draft' ELSE 'pending' END,
+       submitted_at = CASE WHEN ? = 'bulk' THEN submitted_at ELSE CURRENT_TIMESTAMP END,
        updated_at = CURRENT_TIMESTAMP
        WHERE application_id = ? AND owner_user_id = ?`
-    ).bind(applicationId, userId),
+    ).bind(current.submission_mode, current.submission_mode, applicationId, userId),
     env.DB.prepare(
       `INSERT INTO notifications (
          id, user_id, type, title, message, related_record_type,
@@ -394,7 +469,9 @@ async function submitApplication(env, userId, applicationId) {
       notificationId,
       userId,
       "Creator application submitted",
-      "Your application and first book are waiting for Admin review.",
+      current.submission_mode === "bulk"
+        ? "Your Creator application and bulk catalog are waiting for Admin review."
+        : "Your application and first book are waiting for Admin review.",
       applicationId
     ),
   ]);

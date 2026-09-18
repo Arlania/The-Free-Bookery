@@ -96,6 +96,8 @@ const creatorGenreCount = document.querySelector("[data-creator-genre-count]");
 const creatorOtherGenreChoice = document.querySelector("[data-other-genre-choice]");
 const creatorOtherGenreField = document.querySelector("[data-other-genre-field]");
 const creatorOtherGenreInput = creatorTitleForm?.elements.namedItem("otherGenre");
+const creatorSocialList = document.querySelector("[data-creator-social-list]");
+const addCreatorSocialButton = document.querySelector("[data-add-social]");
 const creatorApplicationStatus = document.querySelector(
   "[data-creator-application-status]"
 );
@@ -143,6 +145,9 @@ let bookBeingSaved = null;
 let saveBookTrigger = null;
 let homeRecentSearchesExpanded = false;
 let creatorFormStep = 1;
+let creatorAutosaveTimer = 0;
+let creatorAutosavePaused = false;
+let creatorAutosavePromise = Promise.resolve();
 let currentAccount = null;
 let accountStateResolved = false;
 let creatorApplicationData = null;
@@ -1738,7 +1743,7 @@ function renderCreatorApplicationStatus() {
   description.textContent = copy.message;
   creatorApplicationStatus.append(heading, description);
 
-  if (creatorApplicationData?.book) {
+  if (creatorApplicationData?.book && application.submissionMode !== "bulk") {
     const bookStatus = document.createElement("p");
     bookStatus.className = "creator-application-book-status";
     const labels = {
@@ -1910,10 +1915,48 @@ function renderCreatorDashboard() {
   });
 }
 
+function creatorSubmissionMode() {
+  return String(new FormData(creatorTitleForm).get("submissionMode") || "individual");
+}
+
+function creatorStepSequence() {
+  if (hasApprovedCreatorAccess()) return [4, 5, 6, 7];
+  return creatorSubmissionMode() === "bulk" ? [1, 2, 3, 4, 6, 7] : [1, 2, 3, 4, 5, 6, 7];
+}
+
+function updateCreatorConditionalUI() {
+  if (!creatorTitleForm) return;
+  const creatorType = String(new FormData(creatorTitleForm).get("creatorType") || "author");
+  const bulk = creatorSubmissionMode() === "bulk" && !hasApprovedCreatorAccess();
+  const heading = document.querySelector("[data-creator-profile-heading]");
+  const copy = document.querySelector("[data-creator-profile-copy]");
+  const legalLabel = document.querySelector("[data-creator-legal-label]");
+  if (heading) heading.textContent = creatorType === "publisher" ? "Tell us about the publisher." : "Tell us about you.";
+  if (copy) copy.textContent = creatorType === "publisher" ? "Use the publisher name and details our team can verify." : "Use the name we can verify. A pen name can still appear publicly.";
+  if (legalLabel) legalLabel.textContent = creatorType === "publisher" ? "Publisher name" : "Author name";
+  document.querySelector("[data-individual-files]").hidden = bulk;
+  document.querySelector("[data-bulk-files]").hidden = !bulk;
+  const filesHeading = document.querySelector("[data-creator-files-heading]");
+  const filesCopy = document.querySelector("[data-creator-files-copy]");
+  if (filesHeading) filesHeading.textContent = bulk ? "Share your catalog." : "Upload the book.";
+  if (filesCopy) filesCopy.textContent = bulk
+    ? "Send a catalog file or shared link. Admins will coordinate the readable book files with you."
+    : "PDF and EPUB are the reader formats Free Bookery can validate and publish.";
+  const bookType = String(new FormData(creatorTitleForm).get("bookType") || "");
+  document.querySelectorAll("[data-genre-type]").forEach((label) => {
+    const visible = Boolean(bookType) && (label.dataset.genreType === "all" || label.dataset.genreType === bookType);
+    label.hidden = !visible;
+    const input = label.querySelector("input");
+    if (!visible && input?.checked) input.checked = false;
+  });
+  updateCreatorGenreState();
+}
+
 function updateCreatorFormStep(step) {
   if (!creatorTitleForm) return;
-  const firstStep = hasApprovedCreatorAccess() ? 2 : 1;
-  creatorFormStep = Math.min(4, Math.max(firstStep, step));
+  updateCreatorConditionalUI();
+  const sequence = creatorStepSequence();
+  creatorFormStep = sequence.includes(step) ? step : sequence[0];
 
   creatorTitleForm.querySelectorAll("[data-creator-step]").forEach((panel) => {
     panel.hidden = Number(panel.dataset.creatorStep) !== creatorFormStep;
@@ -1921,17 +1964,16 @@ function updateCreatorFormStep(step) {
 
   document.querySelectorAll("[data-creator-step-indicator]").forEach((item) => {
     const itemStep = Number(item.dataset.creatorStepIndicator);
-    item.hidden = itemStep === 1 && firstStep === 2;
+    item.hidden = !sequence.includes(itemStep);
     item.classList.toggle("is-active", itemStep === creatorFormStep);
     item.classList.toggle("is-complete", itemStep < creatorFormStep);
   });
 
-  if (creatorBackButton) creatorBackButton.hidden = creatorFormStep === firstStep;
-  if (creatorNextButton) creatorNextButton.hidden = creatorFormStep === 4;
-  if (creatorSubmitButton) creatorSubmitButton.hidden = creatorFormStep !== 4;
+  if (creatorBackButton) creatorBackButton.hidden = creatorFormStep === sequence[0];
+  if (creatorNextButton) creatorNextButton.hidden = creatorFormStep === sequence.at(-1);
+  if (creatorSubmitButton) creatorSubmitButton.hidden = creatorFormStep !== sequence.at(-1);
 
-  if (creatorFormStep === 4) renderCreatorReview();
-  if (creatorFormMessage) creatorFormMessage.textContent = "";
+  if (creatorFormStep === sequence.at(-1)) renderCreatorReview();
   requestAnimationFrame(() => {
     creatorTitleModal?.scrollTo({ top: 0, behavior: "auto" });
   });
@@ -1947,15 +1989,14 @@ function setCreatorTitleModal(open) {
     const laterBook = hasApprovedCreatorAccess();
     const title = document.querySelector("#creator-form-title");
     if (title) title.textContent = laterBook ? "Submit a book" : "Author application & first book";
-    ["creatorType", "legalName", "penName", "website", "biography", "verificationDetails"].forEach((name) => {
-      const field = creatorTitleForm.elements.namedItem(name);
-      if (field && !(field instanceof RadioNodeList)) field.disabled = laterBook;
+    ["creatorType", "legalName", "penName", "website", "biography", "verificationDetails", "submissionMode"].forEach((name) => {
+      creatorTitleForm.querySelectorAll(`[name="${name}"]`).forEach((field) => { field.disabled = laterBook; });
     });
     populateCreatorForm();
-    updateCreatorFormStep(laterBook ? 2 : 1);
+    updateCreatorFormStep(laterBook ? 4 : 1);
     creatorTitleForm.querySelector("input, select")?.focus();
   } else {
-    updateCreatorFormStep(hasApprovedCreatorAccess() ? 2 : 1);
+    updateCreatorFormStep(hasApprovedCreatorAccess() ? 4 : 1);
   }
 }
 
@@ -2035,20 +2076,57 @@ function updateCreatorGenreState() {
     if (!otherSelected) creatorOtherGenreInput.value = "";
   }
   if (creatorGenreCount) creatorGenreCount.textContent = `${selected.length} of 3 selected`;
-  creatorGenreInputs[0]?.setCustomValidity(selected.length ? "" : "Choose at least one book genre.");
+  creatorGenreInputs[0]?.setCustomValidity("");
 }
 
 addCreatorContributorButton?.addEventListener("click", () => addCreatorContributor());
 creatorGenreInputs.forEach((input) => input.addEventListener("change", updateCreatorGenreState));
 
+function addCreatorSocial(value = {}) {
+  if (!creatorSocialList || creatorSocialList.childElementCount >= 12) return;
+  const row = document.createElement("div");
+  row.className = "creator-social-row";
+  row.innerHTML = `<label>Platform<select data-social-platform>
+    <option value="website">Website or author listing</option><option value="facebook">Facebook</option>
+    <option value="youtube">YouTube</option><option value="instagram">Instagram</option>
+    <option value="tiktok">TikTok</option><option value="other">Other</option>
+  </select></label><label>Link<input data-social-url type="url" maxlength="500" placeholder="https://"></label>
+  <button type="button" aria-label="Remove online presence">Remove</button>`;
+  row.querySelector("[data-social-platform]").value = value.platform || "website";
+  row.querySelector("[data-social-url]").value = value.url || "";
+  row.querySelector("button").addEventListener("click", () => {
+    row.remove();
+    scheduleCreatorAutosave();
+  });
+  creatorSocialList.append(row);
+}
+
+function creatorSocialValues() {
+  return Array.from(creatorSocialList?.children || []).map((row) => ({
+    platform: row.querySelector("[data-social-platform]")?.value || "other",
+    url: String(row.querySelector("[data-social-url]")?.value || "").trim(),
+  })).filter((item) => item.url);
+}
+
+addCreatorSocialButton?.addEventListener("click", () => addCreatorSocial());
+
 function populateCreatorForm() {
   if (!creatorTitleForm) return;
+  creatorAutosavePaused = true;
   creatorTitleForm.reset();
   if (creatorContributors) creatorContributors.replaceChildren();
+  if (creatorSocialList) creatorSocialList.replaceChildren();
   const application = creatorApplicationData?.application;
   const book = hasApprovedCreatorAccess() ? activeCreatorBook : creatorApplicationData?.book;
   if (!book) {
+    setCreatorField("creatorType", "author");
+    setCreatorField("submissionMode", "individual");
+    setCreatorField("language", "English");
+    setCreatorField("readingAge", "Adult");
+    addCreatorSocial();
     updateCreatorGenreState();
+    updateCreatorConditionalUI();
+    creatorAutosavePaused = false;
     return;
   }
 
@@ -2059,6 +2137,13 @@ function populateCreatorForm() {
     setCreatorField("biography", application.biography);
     setCreatorField("website", application.website);
     setCreatorField("verificationDetails", application.verificationDetails);
+    setCreatorField("noOnlinePresence", application.noOnlinePresence);
+    setCreatorField("submissionMode", application.submissionMode || "individual");
+    setCreatorField("bulkLink", application.bulkLink);
+    setCreatorField("policyConfirmation", application.policyConfirmation);
+    (application.socialLinks?.length ? application.socialLinks : [{}]).forEach(addCreatorSocial);
+  } else {
+    setCreatorField("submissionMode", "individual");
   }
   const rightsBasis = application?.rightsBasis || book.rightsBasis || "";
   setCreatorField("rights", rightsBasis === "public_domain" ? "public-domain" :
@@ -2085,9 +2170,14 @@ function populateCreatorForm() {
   setCreatorField("readingAge", book.readingAge);
   setCreatorField("explicit", book.explicit ? "yes" : "no");
   setCreatorField("accessibility", book.accessibility);
+  setCreatorField("bookType", book.bookType);
+  setCreatorField("sourceUrl", book.sourceUrl);
 
   renderExistingCreatorFile("manuscript", book.manuscript);
   renderExistingCreatorFile("cover", book.cover);
+  renderExistingCreatorFile("bulk", application?.bulkFile);
+  updateCreatorConditionalUI();
+  creatorAutosavePaused = false;
 }
 
 function formatFileSize(bytes) {
@@ -2121,7 +2211,8 @@ function renderExistingCreatorFile(kind, file) {
       creatorFormMessage.textContent = result.error || "File could not be removed.";
       return;
     }
-    if (hasApprovedCreatorAccess() && activeCreatorBook) activeCreatorBook[kind] = null;
+    if (kind === "bulk" && creatorApplicationData?.application) creatorApplicationData.application.bulkFile = null;
+    else if (hasApprovedCreatorAccess() && activeCreatorBook) activeCreatorBook[kind] = null;
     else if (creatorApplicationData?.book) creatorApplicationData.book[kind] = null;
     renderExistingCreatorFile(kind, null);
     creatorFormMessage.textContent = "File removed.";
@@ -2214,6 +2305,10 @@ async function uploadCreatorFiles(recordId) {
     creatorFormMessage.textContent = "Validating book file…";
     manuscriptValidation = await window.FreeBookeryCover.validateManuscript(manuscript);
   }
+  if (cover?.type === "application/pdf") {
+    creatorFormMessage.textContent = "Creating a cover preview from the PDF…";
+    cover = await window.FreeBookeryCover.create(cover, creatorTitleForm.elements.title.value || "Book cover");
+  }
   if (!cover && !existingBook?.cover && window.FreeBookeryCover) {
     if (!manuscript && existingBook?.manuscript?.url) {
       const response = await fetch(existingBook.manuscript.url);
@@ -2256,6 +2351,22 @@ async function uploadCreatorFiles(recordId) {
     if (hasApprovedCreatorAccess()) activeCreatorBook = data.book;
     else creatorApplicationData = data;
   }
+  creatorTitleForm.elements.manuscript.value = "";
+  creatorTitleForm.elements.cover.value = "";
+  const refreshedBook = hasApprovedCreatorAccess() ? activeCreatorBook : creatorApplicationData?.book;
+  renderExistingCreatorFile("manuscript", refreshedBook?.manuscript);
+  renderExistingCreatorFile("cover", refreshedBook?.cover);
+}
+
+async function uploadCreatorBulkFile(applicationId) {
+  const file = creatorTitleForm.elements.bulkFile?.files?.[0];
+  if (!file) return;
+  if (file.size > 95 * 1024 * 1024) throw new Error("Catalog file is too large.");
+  await uploadWithProgress(`/api/creator-applications/${applicationId}/files/bulk`, file, "bulk", "catalog-file");
+  const refreshed = await fetch("/api/creator-applications/me");
+  if (refreshed.ok) creatorApplicationData = await refreshed.json();
+  creatorTitleForm.elements.bulkFile.value = "";
+  renderExistingCreatorFile("bulk", creatorApplicationData?.application?.bulkFile);
 }
 
 function creatorStepIsValid() {
@@ -2265,7 +2376,24 @@ function creatorStepIsValid() {
   );
   const fields = currentPanel?.querySelectorAll("input, select, textarea") || [];
 
-  if (creatorFormStep === 2) updateCreatorGenreState();
+  if (creatorFormStep === 5) updateCreatorGenreState();
+
+  if (creatorFormStep === 3 && !hasApprovedCreatorAccess()) {
+    const data = getCreatorFormData().application;
+    if (!data.noOnlinePresence && !data.website && !data.socialLinks.length) {
+      creatorFormMessage.textContent = "Add an online presence or choose the no-online-presence option.";
+      return false;
+    }
+  }
+  if (creatorFormStep === 6 && creatorSubmissionMode() === "bulk") {
+    const application = creatorApplicationData?.application;
+    const link = String(creatorTitleForm.elements.bulkLink?.value || "").trim();
+    const file = creatorTitleForm.elements.bulkFile?.files?.[0];
+    if (!link && !file && !application?.bulkFile) {
+      creatorFormMessage.textContent = "Add a catalog link or upload a catalog file.";
+      return false;
+    }
+  }
 
   for (const field of fields) {
     if (!field.checkValidity()) {
@@ -2291,6 +2419,11 @@ function getCreatorFormData() {
       verificationDetails: String(
         formData.get("verificationDetails") || ""
       ).trim(),
+      socialLinks: creatorSocialValues(),
+      noOnlinePresence: Boolean(formData.get("noOnlinePresence")),
+      submissionMode: String(formData.get("submissionMode") || "individual"),
+      policyConfirmation: Boolean(formData.get("policyConfirmation")),
+      bulkLink: String(formData.get("bulkLink") || "").trim(),
       rightsConfirmation: Boolean(formData.get("rights")),
       rightsBasis: formData.get("rights") === "public-domain" ? "public_domain" :
         formData.get("rights") === "copyright" ? "owned_or_administered" : "",
@@ -2311,6 +2444,8 @@ function getCreatorFormData() {
       readingAge: String(formData.get("readingAge") || "").trim(),
       explicit: String(formData.get("explicit") || "no") === "yes",
       accessibility: String(formData.get("accessibility") || "").trim(),
+      bookType: String(formData.get("bookType") || ""),
+      sourceUrl: String(formData.get("sourceUrl") || "").trim(),
       rightsConfirmation: Boolean(formData.get("rights")),
       rightsBasis: formData.get("rights") === "public-domain" ? "public_domain" :
         formData.get("rights") === "copyright" ? "owned_or_administered" : "",
@@ -2324,16 +2459,20 @@ function renderCreatorReview() {
   if (!creatorReview || !creatorTitleForm) return;
   const data = getCreatorFormData();
   const title = data.book;
+  const bulk = data.application.submissionMode === "bulk" && !hasApprovedCreatorAccess();
   const reviewItems = [
     ["Applicant", hasApprovedCreatorAccess() ? (currentAccount?.name || "Author") : (data.application.legalName || "Not added")],
     ["Submission", hasApprovedCreatorAccess() ? "New book" : data.application.creatorType],
-    ["Title", title.title || "Not added"],
-    ["Author", title.author || "Not added"],
-    ["Language", title.language],
-    ["ISBN", title.isbn || "Not provided"],
-    ["Category", title.categories || "Not added"],
-    ["Book file", title.manuscriptName || "Not uploaded"],
-    ["Cover", title.coverName || "Not uploaded"],
+    ["Path", bulk ? "Bulk catalog" : "Individual book"],
+    ...(bulk ? [
+      ["Catalog link", data.application.bulkLink || "Not provided"],
+      ["Catalog file", creatorApplicationData?.application?.bulkFile?.name || creatorTitleForm.elements.bulkFile?.files?.[0]?.name || "Not uploaded"],
+    ] : [
+      ["Title", title.title || "Not added"], ["Author", title.author || "Not added"],
+      ["Language", title.language], ["ISBN", title.isbn || "Not provided"],
+      ["Category", title.categories || "Not added"], ["Book file", title.manuscriptName || "Not uploaded"],
+      ["Cover", title.coverName || "Generated if omitted"],
+    ]),
   ];
 
   creatorReview.replaceChildren();
@@ -2370,11 +2509,10 @@ document.querySelectorAll("[data-creator-title-open]").forEach((button) => {
 
 document
   .querySelector("[data-creator-title-close]")
-  ?.addEventListener("click", () => setCreatorTitleModal(false));
-
-creatorTitleModal?.addEventListener("click", (event) => {
-  if (event.target === creatorTitleModal) setCreatorTitleModal(false);
-});
+  ?.addEventListener("click", async () => {
+    await saveCreatorDraft(false).catch(() => {});
+    setCreatorTitleModal(false);
+  });
 
 creatorApplicationOpenButtons.forEach((button) => {
   button.addEventListener("click", async () => {
@@ -2397,15 +2535,20 @@ creatorApplicationOpenButtons.forEach((button) => {
 });
 
 creatorNextButton?.addEventListener("click", () => {
-  if (creatorStepIsValid()) updateCreatorFormStep(creatorFormStep + 1);
+  if (!creatorStepIsValid()) return;
+  const sequence = creatorStepSequence();
+  updateCreatorFormStep(sequence[Math.min(sequence.length - 1, sequence.indexOf(creatorFormStep) + 1)]);
 });
 
 creatorBackButton?.addEventListener("click", () => {
-  updateCreatorFormStep(creatorFormStep - 1);
+  const sequence = creatorStepSequence();
+  updateCreatorFormStep(sequence[Math.max(0, sequence.indexOf(creatorFormStep) - 1)]);
 });
 
-creatorDraftButton?.addEventListener("click", async () => {
-  try {
+async function saveCreatorDraft(includeFiles = false) {
+  creatorAutosavePromise = creatorAutosavePromise.catch(() => {}).then(async () => {
+    if (!creatorTitleModal || creatorTitleModal.hidden || creatorAutosavePaused) return;
+    creatorFormMessage.textContent = includeFiles ? "Saving draft…" : "Saving…";
     if (hasApprovedCreatorAccess()) {
       if (!activeCreatorBook) throw new Error("Start a book draft first.");
       const response = await fetch(`/api/author/books/${activeCreatorBook.id}`, {
@@ -2415,12 +2558,10 @@ creatorDraftButton?.addEventListener("click", async () => {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Draft could not be saved.");
       activeCreatorBook = result.book;
-      await updateCreatorDuplicateNote(getCreatorFormData().book, activeCreatorBook.id);
-      await uploadCreatorFiles(activeCreatorBook.id);
+      if (includeFiles) await uploadCreatorFiles(activeCreatorBook.id);
       const index = creatorBooks.findIndex((book) => book.id === activeCreatorBook.id);
       if (index >= 0) creatorBooks[index] = activeCreatorBook;
-      creatorFormMessage.textContent = "Draft saved online.";
-      populateCreatorForm();
+      creatorFormMessage.textContent = "Saved just now.";
       renderCreatorDashboard();
       return;
     }
@@ -2436,11 +2577,36 @@ creatorDraftButton?.addEventListener("click", async () => {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Draft could not be saved.");
     creatorApplicationData = result;
-    await updateCreatorDuplicateNote(getCreatorFormData().book, creatorApplicationData.book?.id || "");
-    await uploadCreatorFiles(creatorApplicationData.application.id);
-    creatorFormMessage.textContent = "Draft saved.";
-    populateCreatorForm();
+    if (includeFiles) {
+      if (creatorSubmissionMode() === "bulk") await uploadCreatorBulkFile(creatorApplicationData.application.id);
+      else await uploadCreatorFiles(creatorApplicationData.application.id);
+    }
+    creatorFormMessage.textContent = "Saved just now.";
     renderCreatorApplicationStatus();
+  });
+  return creatorAutosavePromise;
+}
+
+function scheduleCreatorAutosave() {
+  if (creatorAutosavePaused || !creatorTitleModal || creatorTitleModal.hidden) return;
+  window.clearTimeout(creatorAutosaveTimer);
+  creatorFormMessage.textContent = "Changes not saved yet…";
+  creatorAutosaveTimer = window.setTimeout(() => {
+    saveCreatorDraft(false).catch((error) => { creatorFormMessage.textContent = error.message; });
+  }, 900);
+}
+
+creatorTitleForm?.addEventListener("input", scheduleCreatorAutosave);
+creatorTitleForm?.addEventListener("change", (event) => {
+  updateCreatorConditionalUI();
+  if (event.target.type === "file") {
+    saveCreatorDraft(true).catch((error) => { creatorFormMessage.textContent = error.message; });
+  } else scheduleCreatorAutosave();
+});
+
+creatorDraftButton?.addEventListener("click", async () => {
+  try {
+    await saveCreatorDraft(true);
   } catch (error) {
     creatorFormMessage.textContent = error.message;
   }
@@ -2487,7 +2653,8 @@ creatorTitleForm?.addEventListener("submit", async (event) => {
 
     creatorApplicationData = saveResult;
     await updateCreatorDuplicateNote(getCreatorFormData().book, creatorApplicationData.book?.id || "");
-    await uploadCreatorFiles(applicationId);
+    if (creatorSubmissionMode() === "bulk") await uploadCreatorBulkFile(applicationId);
+    else await uploadCreatorFiles(applicationId);
 
     const submitResponse = await fetch(
       `/api/creator-applications/${applicationId}/submit`,

@@ -67,3 +67,13 @@ test("recognizes supported PDF and image signatures", () => {
   assert.equal(signatureIsValid(Uint8Array.from([0xff, 0xd8, 0xff, 0x00]), "image/jpeg"), true);
   assert.equal(signatureIsValid(Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), "image/png"), true);
 });
+
+test("recognizes supported bulk catalog signatures", () => {
+  assert.equal(signatureIsValid(Uint8Array.from([0x50, 0x4b, 0x03, 0x04]),
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), true);
+  assert.equal(signatureIsValid(Uint8Array.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+    "application/vnd.ms-excel"), true);
+  assert.equal(signatureIsValid(new TextEncoder().encode("isbn,title,author\n9780141439518,Example,A. Writer"),
+    "text/csv"), true);
+  assert.equal(signatureIsValid(Uint8Array.from([0, 1, 2, 3]), "text/csv"), false);
+});

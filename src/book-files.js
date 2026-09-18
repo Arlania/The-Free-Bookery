@@ -21,6 +21,18 @@ const fileTypes = {
   },
 };
 
+const bulkFile = {
+  maxBytes: 95 * 1024 * 1024,
+  allowed: new Set([
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "text/csv",
+    "text/tab-separated-values",
+  ]),
+};
+
 function error(message, status) {
   return Response.json({ error: message }, { status });
 }
@@ -54,6 +66,11 @@ function extension(contentType) {
     "application/epub+zip": "epub",
     "image/jpeg": "jpg",
     "image/png": "png",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.oasis.opendocument.spreadsheet": "ods",
+    "text/csv": "csv",
+    "text/tab-separated-values": "tsv",
   }[contentType];
 }
 
@@ -83,7 +100,106 @@ export function signatureIsValid(bytes, contentType) {
     const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
     return bytes.length >= png.length && png.every((value, index) => bytes[index] === value);
   }
+  if (["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.oasis.opendocument.spreadsheet"].includes(contentType)) {
+    return bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b &&
+      bytes[2] === 0x03 && bytes[3] === 0x04;
+  }
+  if (contentType === "application/vnd.ms-excel") {
+    const ole = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+    return bytes.length >= ole.length && ole.every((value, index) => bytes[index] === value);
+  }
+  if (["text/csv", "text/tab-separated-values"].includes(contentType)) {
+    return bytes.length > 0 && !bytes.slice(0, 512).some((value) => value === 0);
+  }
   return false;
+}
+
+async function findBulkApplication(env, applicationId) {
+  return env.DB.prepare(`SELECT * FROM author_applications WHERE id = ? LIMIT 1`)
+    .bind(applicationId).first();
+}
+
+function bulkMetadata(application) {
+  if (!application?.bulk_object_key) return null;
+  return {
+    kind: "bulk",
+    name: application.bulk_original_name,
+    contentType: application.bulk_content_type,
+    size: application.bulk_size,
+    uploadedAt: application.bulk_uploaded_at,
+    url: `/api/creator-applications/${application.id}/files/bulk`,
+  };
+}
+
+async function uploadBulk(request, env, account, applicationId) {
+  if (!trustedOrigin(request, env)) return error("Invalid origin.", 403);
+  const application = await findBulkApplication(env, applicationId);
+  if (!application || application.user_id !== account.profile.user_id) return error("Application not found.", 404);
+  if (!["draft", "changes_requested"].includes(application.status)) {
+    return error("Files can only be changed while the application is editable.", 409);
+  }
+  const contentType = (request.headers.get("content-type") || "").split(";")[0].toLowerCase();
+  if (!bulkFile.allowed.has(contentType)) return error("Upload a PDF, XLS, XLSX, ODS, CSV, or TSV catalog file.", 415);
+  const declaredSize = Number(request.headers.get("content-length") || 0);
+  if (declaredSize > bulkFile.maxBytes) return error("File is too large.", 413);
+  const originalName = cleanFilename(decodeFilename(request.headers.get("x-file-name") || ""));
+  if (!originalName) return error("The original filename is required.", 400);
+  let inspected;
+  try { inspected = await inspectRequest(request); }
+  catch (response) { return response instanceof Response ? response : error("File could not be read.", 400); }
+  if (!signatureIsValid(inspected.prefix, contentType)) return error("File contents do not match the selected type.", 415);
+  const oldKey = application.bulk_object_key;
+  const key = `applications/${applicationId}/bulk/${crypto.randomUUID()}.${extension(contentType)}`;
+  let stored;
+  try {
+    stored = await env.PRIVATE_BOOK_FILES.put(key, inspected.stream, {
+      httpMetadata: { contentType, contentDisposition: `attachment; filename="${originalName.replace(/"/g, "")}"` },
+      customMetadata: { applicationId, ownerUserId: application.user_id, kind: "bulk" },
+    });
+    if (!stored || stored.size > bulkFile.maxBytes) {
+      await env.PRIVATE_BOOK_FILES.delete(key);
+      return error("File is too large.", 413);
+    }
+    await env.DB.prepare(`UPDATE author_applications SET bulk_object_key = ?, bulk_original_name = ?,
+      bulk_content_type = ?, bulk_size = ?, bulk_uploaded_at = CURRENT_TIMESTAMP,
+      updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`)
+      .bind(key, originalName, contentType, stored.size, applicationId, application.user_id).run();
+  } catch (cause) {
+    console.error("Bulk catalog upload failed", cause);
+    if (stored) await env.PRIVATE_BOOK_FILES.delete(key);
+    return error("File upload failed.", 500);
+  }
+  if (oldKey && oldKey !== key) await env.PRIVATE_BOOK_FILES.delete(oldKey).catch(() => {});
+  return Response.json({ file: bulkMetadata(await findBulkApplication(env, applicationId)) }, { status: 201 });
+}
+
+async function serveBulk(request, env, account, applicationId) {
+  const application = await findBulkApplication(env, applicationId);
+  const isAdmin = account.accountRole === "owner" || account.profile.role === "admin";
+  if (!application || (!isAdmin && application.user_id !== account.profile.user_id) || !application.bulk_object_key) {
+    return error("File not found.", 404);
+  }
+  const object = await env.PRIVATE_BOOK_FILES.get(application.bulk_object_key);
+  if (!object) return error("File not found.", 404);
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("Cache-Control", "private, no-store");
+  headers.set("X-Content-Type-Options", "nosniff");
+  return new Response(object.body, { headers });
+}
+
+async function removeBulk(request, env, account, applicationId) {
+  if (!trustedOrigin(request, env)) return error("Invalid origin.", 403);
+  const application = await findBulkApplication(env, applicationId);
+  if (!application || application.user_id !== account.profile.user_id) return error("Application not found.", 404);
+  if (!["draft", "changes_requested"].includes(application.status)) return error("Files cannot currently be removed.", 409);
+  if (application.bulk_object_key) await env.PRIVATE_BOOK_FILES.delete(application.bulk_object_key);
+  await env.DB.prepare(`UPDATE author_applications SET bulk_object_key = NULL, bulk_original_name = NULL,
+    bulk_content_type = NULL, bulk_size = NULL, bulk_uploaded_at = NULL,
+    updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`)
+    .bind(applicationId, application.user_id).run();
+  return new Response(null, { status: 204 });
 }
 
 async function inspectRequest(request) {
@@ -262,11 +378,17 @@ export async function handleBookFileRequest(request, env, executionContext) {
   const authorization = await requireRoles(request, env, ["reader", "author", "admin"], executionContext);
   if (authorization.response) return authorization.response;
   const match = new URL(request.url).pathname.match(
-    /^\/api\/creator-applications\/([0-9a-f-]+)\/files\/(manuscript|cover)$/i
+    /^\/api\/creator-applications\/([0-9a-f-]+)\/files\/(manuscript|cover|bulk)$/i
   );
   if (!match) return error("Not found.", 404);
   const [, applicationId, rawKind] = match;
   const kind = rawKind.toLowerCase();
+  if (kind === "bulk") {
+    if (request.method === "PUT") return uploadBulk(request, env, authorization.account, applicationId);
+    if (request.method === "GET") return serveBulk(request, env, authorization.account, applicationId);
+    if (request.method === "DELETE") return removeBulk(request, env, authorization.account, applicationId);
+    return error("Method not allowed.", 405);
+  }
   if (request.method === "PUT") return upload(request, env, authorization.account, applicationId, kind);
   if (request.method === "GET") return serve(request, env, authorization.account, applicationId, kind);
   if (request.method === "DELETE") return remove(request, env, authorization.account, applicationId, kind);

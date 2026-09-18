@@ -227,248 +227,146 @@
       </section>
     </main>
 
-    <div
-      class="creator-title-modal"
-      data-creator-title-modal
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="creator-form-title"
-      aria-hidden="true"
-      hidden
-    >
+    <section class="creator-title-modal" data-creator-title-modal aria-labelledby="creator-form-title" hidden>
       <div class="creator-title-dialog">
         <div class="creator-title-dialog-header">
           <div>
             <p class="creator-eyebrow">Creator submission</p>
             <h2 id="creator-form-title">Author application &amp; first book</h2>
           </div>
-          <button
-            class="creator-title-close"
-            type="button"
-            data-creator-title-close
-            aria-label="Close title form"
-          >&times;</button>
+          <button class="creator-title-close" type="button" data-creator-title-close>Exit &amp; save</button>
         </div>
 
         <ol class="creator-form-progress" aria-label="Publishing progress">
-          <li class="is-active" data-creator-step-indicator="1"><span>1</span>Personal details</li>
-          <li data-creator-step-indicator="2"><span>2</span>Book details</li>
-          <li data-creator-step-indicator="3"><span>3</span>Files &amp; access</li>
-          <li data-creator-step-indicator="4"><span>4</span>Review and submit</li>
+          <li class="is-active" data-creator-step-indicator="1"><span>1</span>Applicant</li>
+          <li data-creator-step-indicator="2"><span>2</span>Details</li>
+          <li data-creator-step-indicator="3"><span>3</span>Presence</li>
+          <li data-creator-step-indicator="4"><span>4</span>Rights</li>
+          <li data-creator-step-indicator="5"><span>5</span>Book</li>
+          <li data-creator-step-indicator="6"><span>6</span>Files</li>
+          <li data-creator-step-indicator="7"><span>7</span>Review</li>
         </ol>
 
         <form class="creator-title-form">
           <section class="creator-form-step" data-creator-step="1">
             <div class="creator-form-intro">
-              <h3>Personal details</h3>
-              <p>Tell us about you or the organization applying for Creator Access.</p>
+              <span class="creator-question-number">01 →</span>
+              <h3>Who is applying?</h3>
+              <p>This changes which details and upload options we show next.</p>
             </div>
-            <div class="creator-form-grid">
-              <label>
-                Applying as <b class="creator-required" aria-label="required">*</b>
-                <select name="creatorType" required>
-                  <option value="author">Author</option>
-                  <option value="publisher">Publisher</option>
-                </select>
-              </label>
-              <label>
-                Legal name <b class="creator-required" aria-label="required">*</b>
-                <input name="legalName" type="text" maxlength="160" required />
-              </label>
-              <label>
-                Pen name
-                <input name="penName" type="text" maxlength="160" />
-              </label>
-              <label>
-                Website or portfolio
-                <input name="website" type="url" maxlength="500" />
-              </label>
-              <label class="creator-form-wide">
-                Author or organization biography <b class="creator-required" aria-label="required">*</b>
-                <textarea name="biography" rows="5" maxlength="4000" required></textarea>
-              </label>
-              <label class="creator-form-wide">
-                Verification details <b class="creator-required" aria-label="required">*</b>
-                <textarea
-                  name="verificationDetails"
-                  rows="4"
-                  maxlength="4000"
-                  placeholder="Tell us how we can verify your identity, authorship, publisher role, or rights relationship."
-                  required
-                ></textarea>
-              </label>
+            <div class="creator-choice-grid">
+              <label class="creator-choice-card"><input name="creatorType" type="radio" value="author" required /><span><b>A</b><strong>Author</strong><small>I am submitting my own work.</small></span></label>
+              <label class="creator-choice-card"><input name="creatorType" type="radio" value="publisher" /><span><b>B</b><strong>Publisher</strong><small>I represent one or more authors or titles.</small></span></label>
             </div>
           </section>
 
           <section class="creator-form-step" data-creator-step="2" hidden>
             <div class="creator-form-intro">
-              <h3>Book details</h3>
-              <p>Share the publication information readers will see for this title.</p>
+              <span class="creator-question-number">02 →</span>
+              <h3 data-creator-profile-heading>Tell us about you.</h3>
+              <p data-creator-profile-copy>Use the name we can verify. A pen name can still appear publicly.</p>
             </div>
             <div class="creator-form-grid">
               <label>
-                Book title <b class="creator-required" aria-label="required">*</b>
-                <input name="title" type="text" required />
+                <span data-creator-legal-label>Author name</span> <b class="creator-required" aria-label="required">*</b>
+                <input name="legalName" type="text" maxlength="160" autocomplete="name" required />
               </label>
               <label>
-                Subtitle
-                <input name="subtitle" type="text" />
+                Pen name or imprint
+                <input name="penName" type="text" maxlength="160" />
               </label>
-              <section class="creator-detail-block creator-form-wide" aria-labelledby="creator-series-heading">
-                <div>
-                  <h4 id="creator-series-heading">Series</h4>
-                  <p>If your book is part of a series, add its series name here. You can also add this later.</p>
-                </div>
-                <label>
-                  Series name
-                  <input name="series" type="text" />
-                </label>
-              </section>
-              <section class="creator-detail-block creator-form-wide" aria-labelledby="creator-edition-heading">
-                <div>
-                  <h4 id="creator-edition-heading">Edition number</h4>
-                  <p>Use this to tell readers whether the book is an original or updated edition.</p>
-                </div>
-                <label>
-                  Edition number
-                  <input name="edition" type="text" />
-                </label>
-              </section>
-              <section class="creator-detail-block creator-form-wide" aria-labelledby="creator-author-heading">
-                <div>
-                  <h4 id="creator-author-heading">Primary author</h4>
-                  <p>Enter the primary author or contributor. Pen names are allowed.</p>
-                </div>
-                <div class="creator-name-row">
-                  <label>First name <b class="creator-required" aria-label="required">*</b><input name="authorFirstName" type="text" required /></label>
-                  <label>Last name <b class="creator-required" aria-label="required">*</b><input name="authorLastName" type="text" required /></label>
-                </div>
-              </section>
-              <section class="creator-detail-block creator-form-wide" aria-labelledby="creator-contributors-heading">
-                <div>
-                  <h4 id="creator-contributors-heading">Contributors</h4>
-                  <p>Add editors, illustrators, translators, or other contributors in display order.</p>
-                </div>
-                <div class="creator-contributor-controls">
-                  <button class="creator-add-contributor" type="button" data-add-contributor>+ Add contributor</button>
-                  <div class="creator-contributors" data-creator-contributors></div>
-                </div>
-              </section>
               <label class="creator-form-wide">
-                Description <b class="creator-required" aria-label="required">*</b>
-                <span class="creator-field-help">Summarize your book so readers can learn more about it.</span>
-                <textarea name="description" rows="6" maxlength="4000" required></textarea>
+                About you or your publishing organization
+                <textarea name="biography" rows="4" maxlength="4000" placeholder="Optional background for the review team"></textarea>
               </label>
-              <fieldset class="creator-genres creator-form-wide">
-                <legend>Book genres <b class="creator-required" aria-label="required">*</b></legend>
-                <p>Choose up to three genres that best describe your book.</p>
-                <div class="creator-genre-options" data-creator-genres>
-                  <label><input type="checkbox" name="genre" value="Fiction" /> Fiction</label>
-                  <label><input type="checkbox" name="genre" value="Nonfiction" /> Nonfiction</label>
-                  <label><input type="checkbox" name="genre" value="Fantasy" /> Fantasy</label>
-                  <label><input type="checkbox" name="genre" value="Romance" /> Romance</label>
-                  <label><input type="checkbox" name="genre" value="Mystery & Thriller" /> Mystery &amp; Thriller</label>
-                  <label><input type="checkbox" name="genre" value="Science Fiction" /> Science Fiction</label>
-                  <label><input type="checkbox" name="genre" value="Biography & Memoir" /> Biography &amp; Memoir</label>
-                  <label><input type="checkbox" name="genre" value="History" /> History</label>
-                  <label><input type="checkbox" name="genre" value="Young Adult" /> Young Adult</label>
-                  <label><input type="checkbox" name="genre" value="Children's" /> Children's</label>
-                  <label><input type="checkbox" name="genre" value="Poetry" /> Poetry</label>
-                  <label><input type="checkbox" name="genre" value="Education" /> Education</label>
-                  <label><input type="checkbox" name="genre" value="Other" data-other-genre-choice /> Other</label>
-                </div>
-                <label class="creator-other-genre" data-other-genre-field hidden>
-                  Write your genre
-                  <input type="text" name="otherGenre" maxlength="100" placeholder="Enter a genre" disabled />
-                </label>
-                <span class="creator-genre-count" data-creator-genre-count>0 of 3 selected</span>
-              </fieldset>
-              <label>
-                Language <b class="creator-required" aria-label="required">*</b>
-                <select name="language" required>
-                  <option value="English">English</option>
-                  <option value="Spanish">Spanish</option>
-                  <option value="French">French</option>
-                  <option value="Chinese">Chinese</option>
-                  <option value="Other">Other</option>
-                </select>
-              </label>
-              <label>
-                ISBN
-                <input name="isbn" type="text" inputmode="numeric" />
-              </label>
-              <label>
-                DOI
-                <input name="doi" type="text" maxlength="160" />
-              </label>
-              <p class="creator-form-wide creator-help">
-                ISBN and DOI matches are not automatically rejected. If a matching book exists, an Admin must confirm that this is a legitimate new edition or replacement before approving it.
-              </p>
-              <div class="book-duplicate-note creator-form-wide" data-creator-duplicate-note hidden role="note"></div>
-              <fieldset class="creator-rights creator-form-wide">
-                <legend>Publishing rights <b class="creator-required" aria-label="required">*</b></legend>
-                <label><input name="rights" type="radio" value="copyright" required /> I own or administer the necessary publishing rights.</label>
-                <label><input name="rights" type="radio" value="public-domain" /> This is a public-domain work.</label>
-              </fieldset>
+              <label class="creator-form-wide">How can we verify your identity and publishing relationship? <b class="creator-required" aria-label="required">*</b><textarea name="verificationDetails" rows="4" maxlength="4000" required placeholder="For example: your author profile, publisher role, or rights relationship"></textarea></label>
             </div>
           </section>
 
           <section class="creator-form-step" data-creator-step="3" hidden>
             <div class="creator-form-intro">
-              <h3>Files &amp; access</h3>
-              <p>Upload the reading file and cover that our team should review.</p>
+              <span class="creator-question-number">03 →</span>
+              <h3>Where can we find you online?</h3>
+              <p>Add at least one presence we can use to verify your identity or authorship.</p>
             </div>
-            <div class="creator-upload-grid">
-              <label class="creator-upload-card">
-                <span class="creator-upload-icon" aria-hidden="true">EPUB</span>
-                <strong>Book file <b class="creator-required" aria-label="required">*</b></strong>
-                <span>EPUB or PDF · up to 95 MB</span>
-                <input name="manuscript" type="file" accept=".epub,.pdf,application/pdf,application/epub+zip" />
-                <span class="creator-existing-file" data-creator-existing-manuscript></span>
-              </label>
-              <label class="creator-upload-card">
-                <span class="creator-upload-icon" aria-hidden="true">JPG</span>
-                <strong>Cover image</strong>
-                <span>Optional JPG or PNG · otherwise generated automatically</span>
-                <input name="cover" type="file" accept="image/jpeg,image/png" />
-                <span class="creator-existing-file" data-creator-existing-cover></span>
-              </label>
+            <div class="creator-form-grid">
+              <label class="creator-form-wide">Primary website or publisher listing<input name="website" type="url" maxlength="500" placeholder="https://"></label>
             </div>
-            <div class="creator-form-grid creator-access-fields">
-              <label>
-                Accessibility notes
-                <input name="accessibility" type="text" placeholder="Alt text, image descriptions, etc." />
-              </label>
-            </div>
-            <p class="creator-reader-theme-note">
-              Files are stored privately. Only you and Free Bookery Admins can
-              access them while your application is being reviewed.
-            </p>
+            <div class="creator-social-list" data-creator-social-list></div>
+            <button class="creator-add-contributor" type="button" data-add-social>+ Add another online presence</button>
+            <label class="creator-form-check creator-no-presence"><input name="noOnlinePresence" type="checkbox" /><span>I don’t have a website or social profile. Free Bookery may contact me for another way to verify my identity.</span></label>
           </section>
 
           <section class="creator-form-step" data-creator-step="4" hidden>
+            <div class="creator-form-intro"><span class="creator-question-number">04 →</span><h3>How are you submitting books?</h3><p>Every title remains worldwide with no territory restrictions. Admins verify the rights evidence before approval.</p></div>
+            <div class="creator-choice-grid">
+              <label class="creator-choice-card"><input name="submissionMode" type="radio" value="individual" required /><span><b>A</b><strong>One book</strong><small>Recommended for Authors. Enter metadata and upload a readable PDF or EPUB.</small></span></label>
+              <label class="creator-choice-card"><input name="submissionMode" type="radio" value="bulk" /><span><b>B</b><strong>Bulk catalog</strong><small>Recommended for Publishers. Send a spreadsheet, PDF catalog, or shared link for admin-assisted intake.</small></span></label>
+            </div>
+            <fieldset class="creator-rights"><legend>Publishing rights <b class="creator-required" aria-label="required">*</b></legend><label><input name="rights" type="radio" value="copyright" required /> I own or administer the copyright and necessary worldwide publishing rights.</label><label><input name="rights" type="radio" value="public-domain" /> The submitted work is in the public domain.</label></fieldset>
+          </section>
+
+          <section class="creator-form-step" data-creator-step="5" data-individual-step hidden>
+            <div class="creator-form-intro"><span class="creator-question-number">05 →</span><h3>Tell us about the book.</h3><p>Required fields mirror the reference application. Optional metadata can be added now or later.</p></div>
+            <div class="creator-form-grid">
+              <label class="creator-form-wide">Existing book listing<input name="sourceUrl" type="url" maxlength="1000" placeholder="Amazon, Google Books, publisher page, etc."></label>
+              <label>ISBN <b class="creator-required" aria-label="required">*</b><input name="isbn" type="text" inputmode="numeric" required></label>
+              <label>Book title <b class="creator-required" aria-label="required">*</b><input name="title" type="text" required></label>
+              <label>Subtitle<input name="subtitle" type="text"></label>
+              <label>Series<input name="series" type="text"></label>
+              <label>Edition<input name="edition" type="text"></label>
+              <section class="creator-detail-block creator-form-wide"><div><h4>Primary author</h4><p>At least one author is required. Pen names are allowed.</p></div><div class="creator-name-row"><label>First name <b class="creator-required" aria-label="required">*</b><input name="authorFirstName" type="text" required></label><label>Last name <b class="creator-required" aria-label="required">*</b><input name="authorLastName" type="text" required></label></div></section>
+              <section class="creator-detail-block creator-form-wide"><div><h4>Other contributors</h4><p>Add authors, editors, illustrators, or translators in display order.</p></div><div class="creator-contributor-controls"><button class="creator-add-contributor" type="button" data-add-contributor>+ Add contributor</button><div class="creator-contributors" data-creator-contributors></div></div></section>
+              <label class="creator-form-wide">Description or synopsis<textarea name="description" rows="5" maxlength="4000"></textarea></label>
+              <label>Language<select name="language"><option>English</option><option>Spanish</option><option>French</option><option>Chinese</option><option>Other</option></select></label>
+              <label>Age range<select name="readingAge"><option>Adult</option><option>Young Adult</option><option>Kids</option></select></label>
+              <fieldset class="creator-form-wide"><legend>Book type <b class="creator-required" aria-label="required">*</b></legend><label><input name="bookType" type="radio" value="fiction" required> Fiction</label><label><input name="bookType" type="radio" value="nonfiction"> Nonfiction</label></fieldset>
+              <fieldset class="creator-genres creator-form-wide"><legend>Categories</legend><p>Optional: choose up to three. The choices update for fiction or nonfiction.</p><div class="creator-genre-options" data-creator-genres>
+                <label data-genre-type="fiction"><input type="checkbox" name="genre" value="Romance"> Romance</label><label data-genre-type="fiction"><input type="checkbox" name="genre" value="Fantasy"> Fantasy</label><label data-genre-type="fiction"><input type="checkbox" name="genre" value="Science Fiction"> Science Fiction</label><label data-genre-type="fiction"><input type="checkbox" name="genre" value="Mystery, Thrillers, & Crime"> Mystery, Thrillers, &amp; Crime</label><label data-genre-type="fiction"><input type="checkbox" name="genre" value="Horror"> Horror</label><label data-genre-type="fiction"><input type="checkbox" name="genre" value="LGBTQ+ Fiction"> LGBTQ+ Fiction</label><label data-genre-type="fiction"><input type="checkbox" name="genre" value="Historical Fiction"> Historical Fiction</label><label data-genre-type="fiction"><input type="checkbox" name="genre" value="Comics & Graphic Novels"> Comics &amp; Graphic Novels</label><label data-genre-type="fiction"><input type="checkbox" name="genre" value="Poetry"> Poetry</label>
+                <label data-genre-type="nonfiction"><input type="checkbox" name="genre" value="History"> History</label><label data-genre-type="nonfiction"><input type="checkbox" name="genre" value="Spirituality & Religion"> Spirituality &amp; Religion</label><label data-genre-type="nonfiction"><input type="checkbox" name="genre" value="Self Development & Hobbies"> Self Development &amp; Hobbies</label><label data-genre-type="nonfiction"><input type="checkbox" name="genre" value="Biography & Memoir"> Biography &amp; Memoir</label><label data-genre-type="nonfiction"><input type="checkbox" name="genre" value="Science & Technology"> Science &amp; Technology</label><label data-genre-type="nonfiction"><input type="checkbox" name="genre" value="Cooking & Wine"> Cooking &amp; Wine</label><label data-genre-type="nonfiction"><input type="checkbox" name="genre" value="Politics"> Politics</label><label data-genre-type="nonfiction"><input type="checkbox" name="genre" value="Arts & Photography"> Arts &amp; Photography</label><label data-genre-type="nonfiction"><input type="checkbox" name="genre" value="LGBTQ+ Nonfiction"> LGBTQ+ Nonfiction</label><label data-genre-type="nonfiction"><input type="checkbox" name="genre" value="Education"> Education</label><label data-genre-type="nonfiction"><input type="checkbox" name="genre" value="Business & Investing"> Business &amp; Investing</label><label data-genre-type="nonfiction"><input type="checkbox" name="genre" value="Humor & Games"> Humor &amp; Games</label><label data-genre-type="nonfiction"><input type="checkbox" name="genre" value="Travel"> Travel</label><label data-genre-type="nonfiction"><input type="checkbox" name="genre" value="Parenting"> Parenting</label>
+                <label data-genre-type="all"><input type="checkbox" name="genre" value="Other" data-other-genre-choice> Other</label></div><label class="creator-other-genre" data-other-genre-field hidden>Write your category<input type="text" name="otherGenre" maxlength="100" disabled></label><span class="creator-genre-count" data-creator-genre-count>0 of 3 selected</span></fieldset>
+              <label>DOI<input name="doi" type="text" maxlength="160"></label><label>Keywords<input name="keywords" type="text" maxlength="1000"></label>
+              <div class="book-duplicate-note creator-form-wide" data-creator-duplicate-note hidden role="note"></div>
+            </div>
+          </section>
+
+          <section class="creator-form-step" data-creator-step="6" hidden>
+            <div class="creator-form-intro"><span class="creator-question-number">06 →</span><h3 data-creator-files-heading>Upload the book.</h3><p data-creator-files-copy>PDF and EPUB are the reader formats Free Bookery can validate and publish.</p></div>
+            <div data-individual-files>
+              <div class="creator-upload-grid"><label class="creator-upload-card"><span class="creator-upload-icon">BOOK</span><strong>Book file <b class="creator-required" aria-label="required">*</b></strong><span>PDF or EPUB · up to 95 MB. Password-protected or encrypted PDFs are rejected.</span><input name="manuscript" type="file" accept=".epub,.pdf,application/pdf,application/epub+zip"><span class="creator-existing-file" data-creator-existing-manuscript></span></label><label class="creator-upload-card"><span class="creator-upload-icon">COVER</span><strong>Cover image</strong><span>JPG, PNG, or one-page PDF · a cover is generated when omitted</span><input name="cover" type="file" accept="image/jpeg,image/png,application/pdf"><span class="creator-existing-file" data-creator-existing-cover></span></label></div>
+              <div class="creator-form-grid creator-access-fields"><label>Accessibility notes<input name="accessibility" type="text" placeholder="Alt text, image descriptions, etc."></label></div>
+              <p class="creator-reader-theme-note">A file must open successfully and its first page must render into a visible preview so we can confirm it is readable—not blank, corrupted, encrypted, or unsupported. Files stay private during review.</p>
+            </div>
+            <div data-bulk-files hidden>
+              <div class="creator-form-grid"><label class="creator-form-wide">Shared catalog or folder link<input name="bulkLink" type="url" maxlength="1000" placeholder="https://"></label></div>
+              <label class="creator-upload-card"><span class="creator-upload-icon">LIST</span><strong>Catalog file</strong><span>PDF, XLS, XLSX, ODS, CSV, or TSV · up to 95 MB</span><input name="bulkFile" type="file" accept=".pdf,.xls,.xlsx,.ods,.csv,.tsv,application/pdf,text/csv,text/tab-separated-values"><span class="creator-existing-file" data-creator-existing-bulk></span></label>
+              <p class="creator-reader-theme-note">Include ISBN, title, author/contributors, book-file location, and cover for each title. Language defaults to English and age range defaults to Adult. Categories, description, series, and edition are optional. An Admin will follow up about transferring the readable PDF/EPUB files.</p>
+            </div>
+          </section>
+
+          <section class="creator-form-step" data-creator-step="7" hidden>
             <div class="creator-form-intro">
-              <h3>Review and submit</h3>
-              <p>Confirm the title information before sending it to our rights team.</p>
+              <span class="creator-question-number">07 →</span><h3>Ready for review?</h3>
+              <p>Your Creator application and each book are reviewed separately. Nothing becomes public until an Admin approves it.</p>
             </div>
             <div class="creator-review-card" data-creator-review></div>
             <label class="creator-form-check creator-submit-confirmation">
-              <input name="reviewConfirmed" type="checkbox" required />
-              <span>I confirm that this information is accurate and may be reviewed by Free Bookery. <b class="creator-required" aria-label="required">*</b></span>
+              <input name="policyConfirmation" type="checkbox" required />
+              <span>I confirm this information is accurate and agree to Free Bookery’s <a href="content-guidelines.html" target="_blank">Content Guidelines</a>, <a href="privacy.html" target="_blank">Privacy Policy</a>, and <a href="terms.html" target="_blank">Terms</a>. <b class="creator-required" aria-label="required">*</b></span>
             </label>
           </section>
 
-          <p class="creator-form-message" data-creator-form-message role="status" aria-live="polite"></p>
+          <p class="creator-form-message" data-creator-form-message role="status" aria-live="polite">Changes save automatically.</p>
           <button type="button" class="upload-cancel-button" data-creator-upload-cancel hidden>Cancel upload</button>
           <div class="creator-form-actions">
             <button type="button" class="creator-form-back" data-creator-form-back hidden>Back</button>
-            <button type="button" class="creator-form-draft" data-creator-form-draft>Save as draft</button>
+            <button type="button" class="creator-form-draft" data-creator-form-draft>Save now</button>
             <button type="button" class="creator-form-next" data-creator-form-next>Continue</button>
             <button type="submit" class="creator-form-submit" data-creator-form-submit hidden>Submit for review</button>
           </div>
         </form>
       </div>
-    </div>
+    </section>
 
     <footer class="site-footer">
       <div class="footer-main">
