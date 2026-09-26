@@ -51,7 +51,7 @@ body {
 
 .footer-main {
   display: grid;
-  grid-template-columns: minmax(260px, 1.5fr) repeat(2, minmax(150px, 0.55fr));
+  grid-template-columns: minmax(260px, 1.5fr) repeat(3, minmax(140px, 0.55fr));
   gap: clamp(26px, 5vw, 72px);
   width: min(100%, 1180px);
   margin: 0 auto;
@@ -80,7 +80,8 @@ body {
 }
 
 .footer-links,
-.footer-support {
+.footer-support,
+.footer-legal {
   display: grid;
   align-content: start;
   gap: 7px;
@@ -90,8 +91,13 @@ body {
   overflow-wrap: anywhere;
 }
 
+.footer-legal a {
+  overflow-wrap: anywhere;
+}
+
 .footer-links p,
-.footer-support p {
+.footer-support p,
+.footer-legal p {
   margin: 0 0 4px;
   color: #f2cf59;
   font-size: 0.76rem;
@@ -165,6 +171,77 @@ body {
 
 .footer-bottom p {
   margin: 0;
+}
+
+.legal-page {
+  min-height: 65vh;
+  padding: clamp(52px, 8vw, 96px) clamp(24px, 6vw, 104px);
+  background:
+    radial-gradient(circle at 12% 8%, rgba(242, 207, 89, 0.12), transparent 32%),
+    var(--cream);
+}
+
+.legal-document {
+  width: min(100%, 860px);
+  margin: 0 auto;
+  padding: clamp(28px, 5vw, 58px);
+  border: 1px solid rgba(26, 29, 46, 0.12);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 22px 60px rgba(26, 29, 46, 0.09);
+}
+
+.legal-document h1 {
+  margin: 0;
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  line-height: 1.05;
+}
+
+.legal-updated {
+  margin: 14px 0 34px;
+  color: rgba(26, 29, 46, 0.62);
+  font-size: 0.9rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+
+.legal-document h2 {
+  margin: 34px 0 12px;
+  color: var(--ink);
+  font-size: clamp(1.3rem, 2.4vw, 1.65rem);
+}
+
+.legal-document h3 {
+  margin: 22px 0 8px;
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.legal-document p,
+.legal-document li {
+  color: rgba(26, 29, 46, 0.82);
+  line-height: 1.72;
+}
+
+.legal-document ul,
+.legal-document ol {
+  padding-left: 1.4rem;
+}
+
+.legal-document a,
+.terms-check a {
+  color: #7b5d00;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+}
+
+.legal-document address {
+  color: rgba(26, 29, 46, 0.82);
+  font-style: normal;
+  line-height: 1.72;
 }
 
 .site-header {
