@@ -92,9 +92,8 @@ const creatorContributors = document.querySelector("[data-creator-contributors]"
 const addCreatorContributorButton = document.querySelector("[data-add-contributor]");
 const creatorGenreInputs = Array.from(document.querySelectorAll('input[name="genre"]'));
 const creatorGenreCount = document.querySelector("[data-creator-genre-count]");
-const creatorOtherGenreChoice = document.querySelector("[data-other-genre-choice]");
-const creatorOtherGenreField = document.querySelector("[data-other-genre-field]");
-const creatorOtherGenreInput = creatorTitleForm?.elements.namedItem("otherGenre");
+const creatorOtherGenreList = document.querySelector("[data-other-genre-list]");
+const addCreatorOtherGenreButton = document.querySelector("[data-add-other-genre]");
 const creatorSocialList = document.querySelector("[data-creator-social-list]");
 const addCreatorSocialButton = document.querySelector("[data-add-social]");
 const creatorApplicationStatus = document.querySelector(
@@ -1986,9 +1985,7 @@ function updateCreatorConditionalUI() {
   if (bulkContact) bulkContact.hidden = !(bulk && hasApprovedCreatorAccess());
   if (bulkIntake) bulkIntake.hidden = bulk && hasApprovedCreatorAccess();
   const filesHeading = document.querySelector("[data-creator-files-heading]");
-  const filesCopy = document.querySelector("[data-creator-files-copy]");
   if (filesHeading) filesHeading.textContent = "Upload the book.";
-  if (filesCopy) filesCopy.textContent = "PDF and EPUB are the reader formats Free Bookery can validate and publish.";
   const bookType = String(new FormData(creatorTitleForm).get("bookType") || "");
   document.querySelectorAll("[data-genre-type]").forEach((label) => {
     const visible = Boolean(bookType) && (label.dataset.genreType === "all" || label.dataset.genreType === bookType);
@@ -2122,20 +2119,35 @@ function creatorContributorValue() {
 
 function updateCreatorGenreState() {
   const selected = creatorGenreInputs.filter((input) => input.checked);
-  creatorGenreInputs.forEach((input) => { input.disabled = selected.length >= 3 && !input.checked; });
-  const otherSelected = Boolean(creatorOtherGenreChoice?.checked);
-  if (creatorOtherGenreField) creatorOtherGenreField.hidden = !otherSelected;
-  if (creatorOtherGenreInput) {
-    creatorOtherGenreInput.disabled = !otherSelected;
-    creatorOtherGenreInput.required = otherSelected;
-    if (!otherSelected) creatorOtherGenreInput.value = "";
-  }
-  if (creatorGenreCount) creatorGenreCount.textContent = `${selected.length} of 3 selected`;
+  const customCount = creatorOtherGenreList?.childElementCount || 0;
+  const total = selected.length + customCount;
+  creatorGenreInputs.forEach((input) => { input.disabled = total >= 3 && !input.checked; });
+  if (addCreatorOtherGenreButton) addCreatorOtherGenreButton.disabled = total >= 3;
+  if (creatorGenreCount) creatorGenreCount.textContent = `${total} of 3 selected`;
   creatorGenreInputs[0]?.setCustomValidity("");
+}
+
+function addCreatorOtherGenre(value = "") {
+  if (!creatorOtherGenreList) return;
+  const selectedCount = creatorGenreInputs.filter((input) => input.checked).length;
+  if (selectedCount + creatorOtherGenreList.childElementCount >= 3) return;
+  const row = document.createElement("label");
+  row.className = "creator-other-genre";
+  row.innerHTML = `<span>Other category</span><span class="creator-other-genre-entry"><input type="text" maxlength="100" data-other-genre-input required><button class="creator-trash-button" type="button" aria-label="Remove custom category" title="Remove custom category"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button></span>`;
+  row.querySelector("[data-other-genre-input]").value = value;
+  row.querySelector("button").addEventListener("click", () => {
+    row.remove();
+    updateCreatorGenreState();
+    scheduleCreatorAutosave();
+  });
+  creatorOtherGenreList.append(row);
+  updateCreatorGenreState();
+  row.querySelector("input")?.focus();
 }
 
 addCreatorContributorButton?.addEventListener("click", () => addCreatorContributor());
 creatorGenreInputs.forEach((input) => input.addEventListener("change", updateCreatorGenreState));
+addCreatorOtherGenreButton?.addEventListener("click", () => addCreatorOtherGenre());
 
 function addCreatorSocial(value = {}) {
   if (!creatorSocialList || creatorSocialList.childElementCount >= 12) return;
@@ -2217,6 +2229,7 @@ function populateCreatorForm() {
   creatorTitleForm.reset();
   if (creatorContributors) creatorContributors.replaceChildren();
   if (creatorSocialList) creatorSocialList.replaceChildren();
+  if (creatorOtherGenreList) creatorOtherGenreList.replaceChildren();
   const application = creatorApplicationData?.application;
   const book = hasApprovedCreatorAccess() ? activeCreatorBook : creatorApplicationData?.book;
   if (!book) {
@@ -2264,11 +2277,15 @@ function populateCreatorForm() {
   setCreatorField("authorLastName", authorLastName);
   String(book.contributors || "").split(/;|,(?=\s*(?:Author|Editor|Illustrator|Translator|Other)\s*:)/).map((item) => item.trim()).filter(Boolean).forEach(addCreatorContributor);
   setCreatorField("description", book.description);
-  const savedGenres = String(book.categories || "").split(",").map((genre) => genre.trim()).filter(Boolean);
-  const standardGenres = creatorGenreInputs.filter((input) => input.value !== "Other").map((input) => input.value);
-  const customGenre = savedGenres.find((genre) => !standardGenres.includes(genre));
-  creatorGenreInputs.forEach((input) => { input.checked = input.value === "Other" ? Boolean(customGenre) : savedGenres.includes(input.value); });
-  if (creatorOtherGenreInput) creatorOtherGenreInput.value = customGenre || "";
+  const categoryText = String(book.categories || "");
+  const standardGenres = creatorGenreInputs.map((input) => input.value);
+  const savedGenres = categoryText.includes(";")
+    ? categoryText.split(";").map((genre) => genre.trim()).filter(Boolean)
+    : standardGenres.filter((genre) => categoryText.includes(genre)).concat(
+        categoryText.replace("Mystery, Thrillers, & Crime", "").split(",").map((genre) => genre.trim()).filter((genre) => genre && !standardGenres.includes(genre))
+      );
+  creatorGenreInputs.forEach((input) => { input.checked = savedGenres.includes(input.value); });
+  savedGenres.filter((genre) => !standardGenres.includes(genre)).slice(0, 3 - creatorGenreInputs.filter((input) => input.checked).length).forEach(addCreatorOtherGenre);
   updateCreatorGenreState();
   setCreatorField("keywords", book.keywords);
   setCreatorField("readingAge", book.readingAge);
@@ -2542,7 +2559,9 @@ function getCreatorFormData() {
       edition: String(formData.get("edition") || "").trim(),
       contributors: creatorContributorValue(),
       description: String(formData.get("description") || "").trim(),
-      categories: creatorGenreInputs.filter((input) => input.checked).map((input) => input.value === "Other" ? String(creatorOtherGenreInput?.value || "").trim() : input.value).filter(Boolean).join(", "),
+      categories: creatorGenreInputs.filter((input) => input.checked).map((input) => input.value)
+        .concat(Array.from(creatorOtherGenreList?.querySelectorAll("[data-other-genre-input]") || []).map((input) => String(input.value || "").trim()))
+        .filter(Boolean).join("; "),
       keywords: String(formData.get("keywords") || "").trim(),
       readingAge: String(formData.get("readingAge") || "").trim(),
       explicit: String(formData.get("explicit") || "no") === "yes",
