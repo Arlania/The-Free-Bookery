@@ -87,7 +87,6 @@ const creatorFormMessage = document.querySelector("[data-creator-form-message]")
 const creatorReview = document.querySelector("[data-creator-review]");
 const creatorNextButton = document.querySelector("[data-creator-form-next]");
 const creatorBackButton = document.querySelector("[data-creator-form-back]");
-const creatorDraftButton = document.querySelector("[data-creator-form-draft]");
 const creatorSubmitButton = document.querySelector("[data-creator-form-submit]");
 const creatorContributors = document.querySelector("[data-creator-contributors]");
 const addCreatorContributorButton = document.querySelector("[data-add-contributor]");
@@ -179,6 +178,15 @@ function showCreatorSavedMessage() {
     if (creatorFormMessage.textContent === "Changes saved.") creatorFormMessage.textContent = "";
   }, 3000);
 }
+
+function resizeCreatorTextarea(field) {
+  if (!field) return;
+  field.style.height = "auto";
+  field.style.height = `${field.scrollHeight}px`;
+}
+
+const creatorBiography = creatorTitleForm?.querySelector('[name="biography"]');
+creatorBiography?.addEventListener("input", () => resizeCreatorTextarea(creatorBiography));
 let activeCreatorBook = null;
 let readerCollections = [];
 let starredBooks = [];
@@ -1961,7 +1969,14 @@ function updateCreatorConditionalUI() {
   if (heading) heading.textContent = creatorType === "publisher" ? "Publisher Details" : "Author Personal Details";
   if (legalLabel) legalLabel.textContent = creatorType === "publisher" ? "Publisher name" : "Author name";
   const formData = new FormData(creatorTitleForm);
-  const pathIsReady = Boolean(formData.get("submissionMode") && formData.get("rights"));
+  const noOnlinePresence = Boolean(formData.get("noOnlinePresence"));
+  creatorSocialList?.querySelectorAll(".creator-social-row").forEach((row) => {
+    const platformName = row.querySelector("[data-social-platform-name]");
+    if (platformName) platformName.required = !noOnlinePresence && row.querySelector("[data-social-platform]")?.value === "other";
+  });
+  const pathIsReady = Boolean(
+    formData.get("submissionMode") && formData.get("rights") && formData.get("policyConfirmation")
+  );
   if (creatorIndividualDetails) creatorIndividualDetails.hidden = !pathIsReady || bulk;
   if (creatorBulkDetails) creatorBulkDetails.hidden = !pathIsReady || !bulk;
   creatorIndividualDetails?.querySelectorAll("input, select, textarea").forEach((field) => { field.disabled = !pathIsReady || bulk; });
@@ -2007,7 +2022,6 @@ function updateCreatorFormStep(step) {
   if (creatorBackButton) creatorBackButton.hidden = creatorFormStep === sequence[0];
   if (creatorNextButton) creatorNextButton.hidden = creatorFormStep === sequence.at(-1);
   if (creatorSubmitButton) creatorSubmitButton.hidden = creatorFormStep !== sequence.at(-1);
-  if (creatorDraftButton) creatorDraftButton.hidden = hasApprovedCreatorAccess() && creatorSubmissionMode() === "bulk";
   if (creatorSubmitButton) creatorSubmitButton.textContent = hasApprovedCreatorAccess() && creatorSubmissionMode() === "bulk"
     ? "Return to dashboard" : "Submit for review";
 
@@ -2037,6 +2051,7 @@ function setCreatorTitleModal(open) {
     populateCreatorForm();
     updateCreatorFormStep(laterBook ? 4 : 1);
     creatorTitleForm.querySelector("input, select")?.focus();
+    requestAnimationFrame(() => resizeCreatorTextarea(creatorBiography));
   } else {
     updateCreatorFormStep(hasApprovedCreatorAccess() ? 4 : 1);
   }
@@ -2070,21 +2085,19 @@ function addCreatorContributor(value = "") {
   const row = document.createElement("div");
   row.className = "creator-contributor-row";
   row.innerHTML = `
-    <label>Role<select data-contributor-role>
+    <label><span>Role</span><select data-contributor-role>
       ${contributorRoles.map((role) => `<option${role === selectedRole ? " selected" : ""}>${role}</option>`).join("")}
-    </select></label>
+    </select><input type="text" maxlength="80" data-contributor-other-role aria-label="Other contributor role" placeholder="Enter role" hidden></label>
     <label>First name<input type="text" data-contributor-first></label>
     <label>Last name<input type="text" data-contributor-last></label>
-    <button type="button" aria-label="Remove contributor">Remove</button>
-    <label class="creator-contributor-role-other" data-contributor-other-field hidden>Specify role<input type="text" maxlength="80" data-contributor-other-role placeholder="Enter contributor role"></label>`;
+    <button class="creator-trash-button" type="button" aria-label="Remove contributor" title="Remove contributor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button>`;
   row.querySelector("[data-contributor-first]").value = firstName;
   row.querySelector("[data-contributor-last]").value = lastName;
   const roleSelect = row.querySelector("[data-contributor-role]");
-  const otherRoleField = row.querySelector("[data-contributor-other-field]");
   const otherRoleInput = row.querySelector("[data-contributor-other-role]");
   const updateOtherRole = () => {
     const isOther = roleSelect.value === "Other";
-    otherRoleField.hidden = !isOther;
+    otherRoleInput.hidden = !isOther;
     otherRoleInput.required = isOther;
     if (!isOther) otherRoleInput.value = "";
   };
@@ -2126,17 +2139,26 @@ creatorGenreInputs.forEach((input) => input.addEventListener("change", updateCre
 
 function addCreatorSocial(value = {}) {
   if (!creatorSocialList || creatorSocialList.childElementCount >= 12) return;
+  const isPrimary = creatorSocialList.childElementCount === 0;
+  const platforms = [
+    ["website", "Website or author listing"], ["facebook", "Facebook"], ["youtube", "YouTube"],
+    ["instagram", "Instagram"], ["tiktok", "TikTok"], ["other", "Other"],
+  ];
   const row = document.createElement("div");
   row.className = "creator-social-row";
-  row.innerHTML = `<label>Platform<select data-social-platform>
-    <option value="website">Website or author listing</option><option value="facebook">Facebook</option>
-    <option value="youtube">YouTube</option><option value="instagram">Instagram</option>
-    <option value="tiktok">TikTok</option><option value="other">Other</option>
-  </select></label>
+  row.dataset.socialPrimary = String(isPrimary);
+  row.innerHTML = `<div class="creator-social-platform-line"><label><span>Platform</span><div class="creator-platform-picker" data-platform-picker>
+    <button class="creator-platform-trigger" type="button" aria-haspopup="listbox" aria-expanded="false"><span data-platform-label></span><span aria-hidden="true">⌄</span></button>
+    <div class="creator-platform-options" role="listbox" hidden>${platforms.map(([optionValue, label]) => `<button type="button" role="option" data-platform-option="${optionValue}">${label}</button>`).join("")}</div>
+    <select data-social-platform aria-label="Platform" hidden>${platforms.map(([optionValue, label]) => `<option value="${optionValue}">${label}</option>`).join("")}</select>
+  </div></label>${isPrimary ? "" : `<button class="creator-trash-button" type="button" data-remove-social aria-label="Remove online presence" title="Remove online presence"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button>`}</div>
   <label class="creator-social-other" data-social-other-field hidden>Platform name<input data-social-platform-name type="text" maxlength="80"></label>
-  <label>Link<input data-social-url type="url" maxlength="500" placeholder="https://"></label>
-  <button type="button" aria-label="Remove online presence">Remove</button>`;
+  <label>Link<input data-social-url type="url" maxlength="500" placeholder="https://"></label>`;
   const platformSelect = row.querySelector("[data-social-platform]");
+  const platformPicker = row.querySelector("[data-platform-picker]");
+  const platformTrigger = row.querySelector(".creator-platform-trigger");
+  const platformOptions = row.querySelector(".creator-platform-options");
+  const platformLabel = row.querySelector("[data-platform-label]");
   const otherField = row.querySelector("[data-social-other-field]");
   const otherInput = row.querySelector("[data-social-platform-name]");
   platformSelect.value = value.platform || "website";
@@ -2144,13 +2166,35 @@ function addCreatorSocial(value = {}) {
   row.querySelector("[data-social-url]").value = value.url || "";
   const updateOtherPlatform = () => {
     const isOther = platformSelect.value === "other";
+    platformLabel.textContent = platforms.find(([optionValue]) => optionValue === platformSelect.value)?.[1] || "Other";
+    row.querySelectorAll("[data-platform-option]").forEach((option) => {
+      option.setAttribute("aria-selected", String(option.dataset.platformOption === platformSelect.value));
+    });
     otherField.hidden = !isOther;
     otherInput.required = isOther;
     if (!isOther) otherInput.value = "";
   };
   platformSelect.addEventListener("change", updateOtherPlatform);
+  platformTrigger.addEventListener("click", () => {
+    const willOpen = platformOptions.hidden;
+    platformOptions.hidden = !willOpen;
+    platformTrigger.setAttribute("aria-expanded", String(willOpen));
+  });
+  row.querySelectorAll("[data-platform-option]").forEach((option) => option.addEventListener("click", () => {
+    platformSelect.value = option.dataset.platformOption;
+    platformSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    platformOptions.hidden = true;
+    platformTrigger.setAttribute("aria-expanded", "false");
+    platformTrigger.focus();
+  }));
+  platformPicker.addEventListener("focusout", () => window.setTimeout(() => {
+    if (!platformPicker.contains(document.activeElement)) {
+      platformOptions.hidden = true;
+      platformTrigger.setAttribute("aria-expanded", "false");
+    }
+  }, 0));
   updateOtherPlatform();
-  row.querySelector("button").addEventListener("click", () => {
+  row.querySelector("[data-remove-social]")?.addEventListener("click", () => {
     row.remove();
     scheduleCreatorAutosave();
   });
@@ -2183,6 +2227,7 @@ function populateCreatorForm() {
     addCreatorSocial();
     updateCreatorGenreState();
     updateCreatorConditionalUI();
+    requestAnimationFrame(() => resizeCreatorTextarea(creatorBiography));
     creatorAutosavePaused = false;
     return;
   }
@@ -2236,6 +2281,7 @@ function populateCreatorForm() {
   renderExistingCreatorFile("cover", book.cover);
   renderExistingCreatorFile("bulk", application?.bulkFile);
   updateCreatorConditionalUI();
+  requestAnimationFrame(() => resizeCreatorTextarea(creatorBiography));
   creatorAutosavePaused = false;
 }
 
@@ -2681,14 +2727,6 @@ creatorTitleForm?.addEventListener("change", (event) => {
   if (event.target.type === "file") {
     saveCreatorDraft(true).catch((error) => { creatorFormMessage.textContent = error.message; });
   } else scheduleCreatorAutosave();
-});
-
-creatorDraftButton?.addEventListener("click", async () => {
-  try {
-    await saveCreatorDraft(true);
-  } catch (error) {
-    creatorFormMessage.textContent = error.message;
-  }
 });
 
 creatorTitleForm?.addEventListener("submit", async (event) => {

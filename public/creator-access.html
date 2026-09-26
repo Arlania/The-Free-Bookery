@@ -269,12 +269,12 @@
                 <input name="legalName" type="text" maxlength="160" autocomplete="name" required />
               </label>
               <label>
-                Pen name
+                <span class="creator-label-with-info">Pen name <span class="creator-info-wrap"><button class="creator-info-button" type="button" aria-label="About pen names" aria-describedby="creator-pen-name-help">i</button><span class="creator-info-tooltip" id="creator-pen-name-help" role="tooltip">Pen name will be shown publicly</span></span></span>
                 <input name="penName" type="text" maxlength="160" />
               </label>
               <label class="creator-form-wide">
                 About you or your publishing organization
-                <textarea name="biography" rows="4" maxlength="4000" placeholder="Tell us about yourself"></textarea>
+                <textarea name="biography" rows="1" maxlength="4000" placeholder="Tell us about yourself" data-auto-grow></textarea>
               </label>
             </div>
           </section>
@@ -289,8 +289,7 @@
             <button class="creator-add-contributor" type="button" data-add-social>+ Add another online presence</button>
             <div class="creator-form-check creator-no-presence">
               <label><input name="noOnlinePresence" type="checkbox" /><span>I don’t have a website or social profile.</span></label>
-              <button class="creator-info-button" type="button" aria-label="Why we ask about an online presence" aria-describedby="creator-no-presence-help">i</button>
-              <span class="creator-info-tooltip" id="creator-no-presence-help" role="tooltip">Free Bookery may contact me for another way to verify my identity.</span>
+              <span class="creator-info-wrap"><button class="creator-info-button" type="button" aria-label="Why we ask about an online presence" aria-describedby="creator-no-presence-help">i</button><span class="creator-info-tooltip" id="creator-no-presence-help" role="tooltip">Free Bookery may contact me for another way to verify my identity.</span></span>
             </div>
           </section>
 
@@ -300,11 +299,11 @@
               <label class="creator-choice-card"><input name="submissionMode" type="radio" value="individual" required /><span><b>A</b><strong>One book</strong><small>Recommended for Authors. Enter metadata and upload a readable PDF or EPUB.</small></span></label>
               <label class="creator-choice-card"><input name="submissionMode" type="radio" value="bulk" /><span><b>B</b><strong>Bulk catalog</strong><small>Recommended for Publishers. Send a spreadsheet, PDF catalog, or shared link for admin-assisted intake.</small></span></label>
             </div>
-            <fieldset class="creator-rights"><legend>Publishing rights <b class="creator-required" aria-label="required">*</b></legend><div class="creator-rights-choices"><label><input name="rights" type="radio" value="copyright" required /> I own or administer the copyright and necessary worldwide publishing rights.</label><label><input name="rights" type="radio" value="public-domain" /> The submitted work is in the public domain.</label></div></fieldset>
-            <div class="creator-policy-notice">
-              <strong>Content Guidelines</strong>
-              <p>By uploading your content, you agree to our <a href="content-guidelines.html" target="_blank" rel="noopener">Content Guidelines</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>, and <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>.</p>
-            </div>
+            <fieldset class="creator-confirmation-card creator-rights"><legend>Publishing rights <b class="creator-required" aria-label="required">*</b></legend><div class="creator-rights-choices"><label><input name="rights" type="radio" value="copyright" required /><span>I own or administer the copyright and necessary worldwide publishing rights.</span></label><label><input name="rights" type="radio" value="public-domain" /><span>The submitted work is in the public domain.</span></label></div></fieldset>
+            <label class="creator-confirmation-card creator-policy-confirmation">
+              <input name="policyConfirmation" type="checkbox" required />
+              <span><strong>Content Guidelines</strong><small>By uploading your content, you agree to our <a href="content-guidelines.html" target="_blank" rel="noopener">Content Guidelines</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>, and <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>. <b class="creator-required" aria-label="required">*</b></small></span>
+            </label>
             <div class="creator-path-details" data-individual-details hidden></div>
             <div class="creator-path-details" data-bulk-details hidden></div>
           </section>
@@ -363,17 +362,16 @@
             </div>
             <div class="creator-review-card" data-creator-review></div>
             <label class="creator-form-check creator-submit-confirmation">
-              <input name="policyConfirmation" type="checkbox" required />
-              <span>I confirm this information is accurate and agree to Free Bookery’s <a href="content-guidelines.html" target="_blank">Content Guidelines</a>, <a href="privacy.html" target="_blank">Privacy Policy</a>, and <a href="terms.html" target="_blank">Terms</a>. <b class="creator-required" aria-label="required">*</b></span>
+              <input name="submissionConfirmation" type="checkbox" required />
+              <span>I confirm this information is accurate. <b class="creator-required" aria-label="required">*</b></span>
             </label>
           </section>
 
           <p class="creator-form-message" data-creator-form-message role="status" aria-live="polite"></p>
           <button type="button" class="upload-cancel-button" data-creator-upload-cancel hidden>Cancel upload</button>
           <div class="creator-form-actions">
-            <button type="button" class="creator-form-back" data-creator-form-back hidden>Back</button>
-            <button type="button" class="creator-form-draft" data-creator-form-draft>Save now</button>
-            <button type="button" class="creator-form-next" data-creator-form-next>Continue</button>
+            <button type="button" class="creator-form-back creator-nav-arrow" data-creator-form-back aria-label="Back" title="Back" hidden>&larr;</button>
+            <button type="button" class="creator-form-next creator-nav-arrow" data-creator-form-next aria-label="Continue" title="Continue">&rarr;</button>
             <button type="submit" class="creator-form-submit" data-creator-form-submit hidden>Submit for review</button>
           </div>
         </form>
