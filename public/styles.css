@@ -5689,6 +5689,7 @@ img, svg, video, canvas { max-width: 100%; }
 .creator-form-grid textarea::placeholder { color: rgba(16, 11, 43, 0.48); font-weight: 400; }
 .creator-form-grid input:focus, .creator-form-grid select:focus, .creator-form-grid textarea:focus { outline: 0; border-color: #a25c27 !important; }
 .creator-form-grid textarea[data-auto-grow] { min-height: 40px; overflow: hidden; resize: none; }
+.creator-form-grid > label[hidden] { display: none !important; }
 .creator-label-with-info { display: inline-flex !important; align-items: center; gap: 7px; color: var(--ink) !important; font-size: inherit !important; font-weight: 400 !important; }
 .creator-social-list { display: grid; gap: 12px; margin: 34px 0 16px; }
 .creator-social-row { display: grid; max-width: 720px; gap: 18px; border-bottom: 1px solid rgba(16,11,43,.12); padding: 0 0 22px; }
@@ -5795,6 +5796,16 @@ img, svg, video, canvas { max-width: 100%; }
 }
 .creator-info-button:hover + .creator-info-tooltip,
 .creator-info-button:focus-visible + .creator-info-tooltip { display: block; }
+.creator-bulk-link-label { font-weight: 800 !important; }
+.creator-bulk-link-tooltip {
+  width: min(460px, calc(100vw - 64px));
+  font-weight: 400;
+}
+.creator-bulk-link-tooltip > span,
+.creator-bulk-link-tooltip > strong { display: block; }
+.creator-bulk-link-tooltip > span + span,
+.creator-bulk-link-tooltip > span + strong,
+.creator-bulk-link-tooltip > strong + span { margin-top: 9px; }
 
 .creator-required {
   display: inline;
@@ -6131,6 +6142,7 @@ img, svg, video, canvas { max-width: 100%; }
   .creator-contributor-row button { grid-column: 1 / -1; }
 
   .creator-label-with-info .creator-info-tooltip { top: calc(100% + 8px); right: auto; left: 0; width: min(240px, calc(100vw - 64px)); transform: none; }
+  .creator-label-with-info .creator-bulk-link-tooltip { width: min(320px, calc(100vw - 64px)); }
   .creator-no-presence .creator-info-tooltip { top: calc(100% + 8px); right: 0; left: auto; width: min(280px, calc(100vw - 64px)); transform: none; }
 
   .creator-form-actions {

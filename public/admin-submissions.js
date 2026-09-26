@@ -191,8 +191,10 @@ function renderDetail(submission) {
       intro,
       detailSection("Applicant", [
         ["Account", submission.applicant.accountName], ["Email", submission.applicant.email],
-        ["Applying as", submission.applicant.creatorType], ["Pen name", submission.applicant.penName],
-        ["Website", submission.applicant.website], ["Rights confirmed", submission.applicant.rightsConfirmation],
+        ["Applying as", submission.applicant.creatorType],
+        [submission.applicant.creatorType === "publisher" ? "Website" : "Pen name", submission.applicant.creatorType === "publisher" ? submission.applicant.website : submission.applicant.penName],
+        ...(submission.applicant.creatorType === "publisher" ? [] : [["Website", submission.applicant.website]]),
+        ["Rights confirmed", submission.applicant.rightsConfirmation],
         ["Submission path", submission.applicant.submissionMode],
         ["No online presence", submission.applicant.noOnlinePresence],
         ["Online profiles", (submission.applicant.socialLinks || []).map((item) => `${item.platform === "other" ? (item.platformName || "Other") : item.platform}: ${item.url}`).join("\n"), true],

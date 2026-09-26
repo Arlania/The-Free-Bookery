@@ -1971,7 +1971,9 @@ function creatorStepSequence() {
   if (hasApprovedCreatorAccess()) {
     return creatorSubmissionMode() === "bulk" ? [4] : [4, 6];
   }
-  return creatorSubmissionMode() === "bulk" ? [1, 2, 3, 4] : [1, 2, 3, 4, 6];
+  const creatorType = String(new FormData(creatorTitleForm).get("creatorType") || "author");
+  const applicationSteps = creatorType === "publisher" ? [1, 2, 4] : [1, 2, 3, 4];
+  return creatorSubmissionMode() === "bulk" ? applicationSteps : [...applicationSteps, 6];
 }
 
 function updateCreatorConditionalUI() {
@@ -1980,8 +1982,19 @@ function updateCreatorConditionalUI() {
   const bulk = creatorSubmissionMode() === "bulk";
   const heading = document.querySelector("[data-creator-profile-heading]");
   const legalLabel = document.querySelector("[data-creator-legal-label]");
+  const penField = document.querySelector("[data-creator-pen-field]");
+  const publisherWebsiteField = document.querySelector("[data-creator-publisher-website-field]");
+  const isPublisher = creatorType === "publisher";
   if (heading) heading.textContent = creatorType === "publisher" ? "Publisher Details" : "Author Personal Details";
   if (legalLabel) legalLabel.textContent = creatorType === "publisher" ? "Publisher name" : "Author name";
+  if (penField) penField.hidden = isPublisher;
+  if (publisherWebsiteField) publisherWebsiteField.hidden = !isPublisher;
+  const penInput = creatorTitleForm.elements.penName;
+  const publisherWebsiteInput = creatorTitleForm.elements.publisherWebsite;
+  if (penInput) penInput.disabled = hasApprovedCreatorAccess() || isPublisher;
+  if (publisherWebsiteInput) publisherWebsiteInput.disabled = hasApprovedCreatorAccess() || !isPublisher;
+  creatorTitleForm.querySelectorAll('[data-creator-step="3"] input, [data-creator-step="3"] select, [data-creator-step="3"] button')
+    .forEach((field) => { field.disabled = isPublisher; });
   const formData = new FormData(creatorTitleForm);
   const noOnlinePresence = Boolean(formData.get("noOnlinePresence"));
   creatorSocialList?.querySelectorAll(".creator-social-row").forEach((row) => {
@@ -2058,7 +2071,7 @@ function setCreatorTitleModal(open) {
     const laterBook = hasApprovedCreatorAccess();
     const title = document.querySelector("#creator-form-title");
     if (title) title.textContent = laterBook ? "Submit a book" : "Author application & first book";
-    ["creatorType", "legalName", "penName", "biography"].forEach((name) => {
+    ["creatorType", "legalName", "penName", "publisherWebsite", "biography"].forEach((name) => {
       creatorTitleForm.querySelectorAll(`[name="${name}"]`).forEach((field) => { field.disabled = laterBook; });
     });
     populateCreatorForm();
@@ -2266,6 +2279,7 @@ function populateCreatorForm() {
     setCreatorField("creatorType", application.creatorType);
     setCreatorField("legalName", application.legalName);
     setCreatorField("penName", application.penName);
+    setCreatorField("publisherWebsite", application.creatorType === "publisher" ? application.website : "");
     setCreatorField("biography", application.biography);
     setCreatorField("noOnlinePresence", application.noOnlinePresence);
     setCreatorField("submissionMode", application.submissionMode || "individual");
@@ -2552,17 +2566,21 @@ function getCreatorFormData() {
   const formData = new FormData(creatorTitleForm);
   const manuscript = formData.get("manuscript");
   const cover = formData.get("cover");
-  const socialLinks = creatorSocialValues();
+  const creatorType = String(formData.get("creatorType") || "author");
+  const publisherWebsite = creatorType === "publisher"
+    ? String(formData.get("publisherWebsite") || "").trim()
+    : "";
+  const socialLinks = creatorType === "publisher" ? [] : creatorSocialValues();
 
   return {
     application: {
-      creatorType: String(formData.get("creatorType") || "author"),
+      creatorType,
       legalName: String(formData.get("legalName") || "").trim(),
-      penName: String(formData.get("penName") || "").trim(),
+      penName: creatorType === "author" ? String(formData.get("penName") || "").trim() : "",
       biography: String(formData.get("biography") || "").trim(),
-      website: socialLinks.find((item) => item.platform === "website")?.url || "",
+      website: publisherWebsite || socialLinks.find((item) => item.platform === "website")?.url || "",
       socialLinks,
-      noOnlinePresence: Boolean(formData.get("noOnlinePresence")),
+      noOnlinePresence: creatorType === "author" && Boolean(formData.get("noOnlinePresence")),
       submissionMode: String(formData.get("submissionMode") || "individual"),
       policyConfirmation: Boolean(formData.get("policyConfirmation")),
       bulkLink: String(formData.get("bulkLink") || "").trim(),

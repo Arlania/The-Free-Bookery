@@ -267,9 +267,13 @@
                 <strong data-creator-legal-label>Author name</strong> <b class="creator-required" aria-label="required">*</b>
                 <input name="legalName" type="text" maxlength="160" autocomplete="name" required />
               </label>
-              <label>
+              <label data-creator-pen-field>
                 <span class="creator-label-with-info">Pen name <span class="creator-info-wrap"><button class="creator-info-button" type="button" aria-label="About pen names" aria-describedby="creator-pen-name-help">i</button><span class="creator-info-tooltip" id="creator-pen-name-help" role="tooltip">Pen name will be shown publicly</span></span></span>
                 <input name="penName" type="text" maxlength="160" />
+              </label>
+              <label data-creator-publisher-website-field hidden>
+                Link to website <b class="creator-required" aria-label="required">*</b>
+                <input name="publisherWebsite" type="url" maxlength="1000" placeholder="https://" required />
               </label>
               <label class="creator-form-wide">
                 About you or your publishing organization
@@ -348,9 +352,9 @@
             </div>
             <div data-bulk-files hidden>
               <div data-bulk-intake>
-                <div class="creator-form-grid"><label class="creator-form-wide">Shared catalog or folder link<input name="bulkLink" type="url" maxlength="1000" placeholder="https://"></label></div>
+                <div class="creator-form-grid"><label class="creator-form-wide"><span class="creator-label-with-info creator-bulk-link-label">Shared link(s) <span class="creator-info-wrap"><button class="creator-info-button" type="button" aria-label="What to include in a shared link" aria-describedby="creator-bulk-link-help">i</button><span class="creator-info-tooltip creator-bulk-link-tooltip" id="creator-bulk-link-help" role="tooltip"><span>Please enter any file or link that shows multiple books you hold the distribution rights to and would like to add to the Free Bookery.</span><span>Spreadsheets, online file sharing, or any other method is acceptable (ensure it can be opened and accessed). For questions, please email info@freebookery.org</span><strong>All entries must include:</strong><span>• ISBN<br>• Title<br>• Author(s)/contributors (at least one author required)<br>• Book file<br>• Cover image</span></span></span></span><input name="bulkLink" type="url" maxlength="1000" placeholder="https://"></label></div>
                 <label class="creator-upload-card" aria-label="Choose catalog file"><span class="creator-upload-icon">LIST</span><strong>Catalog file</strong><span>PDF, XLS, XLSX, ODS, CSV, or TSV · up to 95 MB</span><span class="creator-upload-action">Choose file</span><span class="creator-upload-selection" data-upload-selection="bulkFile">No file selected</span><input name="bulkFile" type="file" accept=".pdf,.xls,.xlsx,.ods,.csv,.tsv,application/pdf,text/csv,text/tab-separated-values"><span class="creator-existing-file" data-creator-existing-bulk></span></label>
-                <p class="creator-reader-theme-note">Include ISBN, title, author/contributors, book-file location, and cover for each title. Language defaults to English and age range defaults to Adult. Categories, description, series, and edition are optional. An Admin will follow up about transferring the readable PDF/EPUB files.</p>
+                <p class="creator-reader-theme-note">Note: bulk uploads may take longer to process due to the wide variety of upload methods available.</p>
               </div>
               <div class="creator-bulk-contact" data-bulk-contact hidden>
                 <span class="creator-upload-icon" aria-hidden="true">BULK</span>
