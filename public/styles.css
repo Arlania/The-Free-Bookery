@@ -5923,18 +5923,23 @@ img, svg, video, canvas { max-width: 100%; }
 }
 
 .creator-upload-card {
+  position: relative;
   display: grid;
   min-height: 220px;
   align-content: center;
   justify-items: center;
-  gap: 9px;
-  border: 1px dashed rgba(16, 11, 43, 0.3);
-  border-radius: 14px;
-  padding: 24px;
-  background: #f7f2e7;
+  gap: 12px;
+  border: 1px solid rgba(16, 11, 43, 0.16);
+  border-radius: 18px;
+  padding: clamp(28px, 5vw, 44px) 24px;
+  background: rgba(255,255,255,.62);
   cursor: pointer;
   text-align: center;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
 }
+
+.creator-upload-card:hover,
+.creator-upload-card:focus-within { border-color: #a25c27; box-shadow: 0 14px 34px rgba(162,92,39,.12); transform: translateY(-2px); }
 
 .creator-upload-card > span:not(.creator-upload-icon) {
   color: var(--muted-text);
@@ -5953,12 +5958,11 @@ img, svg, video, canvas { max-width: 100%; }
   font-weight: 900;
 }
 
-.creator-upload-card input {
-  max-width: 100%;
-  margin-top: 10px;
-}
+.creator-upload-card input[type="file"] { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.creator-upload-action { display: inline-flex; min-height: 40px; align-items: center; border-radius: 999px; padding: 0 18px; background: var(--ink); color: #fffaf0 !important; font-size: .86rem !important; font-weight: 800; }
+.creator-upload-selection { max-width: 100%; color: var(--ink) !important; font-size: .86rem !important; font-weight: 650; overflow-wrap: anywhere; }
 
-.creator-upload-card .creator-existing-file { display: block; margin-top: 10px; font-size: .84rem; }
+.creator-upload-card .creator-existing-file { display: block; margin-top: 4px; font-size: .84rem; }
 .creator-existing-file a { color: inherit; font-weight: 700; overflow-wrap: anywhere; }
 .creator-existing-file button { border: 0; padding: 0; background: transparent; color: #9b2c2c; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
 

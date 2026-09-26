@@ -184,8 +184,19 @@ function resizeCreatorTextarea(field) {
   field.style.height = `${field.scrollHeight}px`;
 }
 
-const creatorBiography = creatorTitleForm?.querySelector('[name="biography"]');
-creatorBiography?.addEventListener("input", () => resizeCreatorTextarea(creatorBiography));
+const creatorAutoGrowTextareas = Array.from(creatorTitleForm?.querySelectorAll("[data-auto-grow]") || []);
+creatorAutoGrowTextareas.forEach((field) => field.addEventListener("input", () => resizeCreatorTextarea(field)));
+
+function refreshCreatorUploadSelections() {
+  creatorTitleForm?.querySelectorAll('input[type="file"]').forEach((input) => {
+    const selection = creatorTitleForm.querySelector(`[data-upload-selection="${input.name}"]`);
+    if (selection) selection.textContent = input.files?.[0]?.name || "No file selected";
+  });
+}
+
+creatorTitleForm?.querySelectorAll('input[type="file"]').forEach((input) => {
+  input.addEventListener("change", refreshCreatorUploadSelections);
+});
 let activeCreatorBook = null;
 let readerCollections = [];
 let starredBooks = [];
@@ -2048,7 +2059,7 @@ function setCreatorTitleModal(open) {
     populateCreatorForm();
     updateCreatorFormStep(laterBook ? 4 : 1);
     creatorTitleForm.querySelector("input, select")?.focus();
-    requestAnimationFrame(() => resizeCreatorTextarea(creatorBiography));
+    requestAnimationFrame(() => creatorAutoGrowTextareas.forEach(resizeCreatorTextarea));
   } else {
     updateCreatorFormStep(hasApprovedCreatorAccess() ? 4 : 1);
   }
@@ -2227,6 +2238,7 @@ function populateCreatorForm() {
   if (!creatorTitleForm) return;
   creatorAutosavePaused = true;
   creatorTitleForm.reset();
+  refreshCreatorUploadSelections();
   if (creatorContributors) creatorContributors.replaceChildren();
   if (creatorSocialList) creatorSocialList.replaceChildren();
   if (creatorOtherGenreList) creatorOtherGenreList.replaceChildren();
@@ -2240,7 +2252,7 @@ function populateCreatorForm() {
     addCreatorSocial();
     updateCreatorGenreState();
     updateCreatorConditionalUI();
-    requestAnimationFrame(() => resizeCreatorTextarea(creatorBiography));
+    requestAnimationFrame(() => creatorAutoGrowTextareas.forEach(resizeCreatorTextarea));
     creatorAutosavePaused = false;
     return;
   }
@@ -2298,7 +2310,7 @@ function populateCreatorForm() {
   renderExistingCreatorFile("cover", book.cover);
   renderExistingCreatorFile("bulk", application?.bulkFile);
   updateCreatorConditionalUI();
-  requestAnimationFrame(() => resizeCreatorTextarea(creatorBiography));
+  requestAnimationFrame(() => creatorAutoGrowTextareas.forEach(resizeCreatorTextarea));
   creatorAutosavePaused = false;
 }
 
@@ -2323,10 +2335,13 @@ function renderExistingCreatorFile(kind, file) {
   link.target = "_blank";
   link.rel = "noopener";
   link.textContent = `${file.name} (${formatFileSize(file.size)})`;
+  link.addEventListener("click", (event) => event.stopPropagation());
   const remove = document.createElement("button");
   remove.type = "button";
   remove.textContent = "Remove";
-  remove.addEventListener("click", async () => {
+  remove.addEventListener("click", async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     const response = await fetch(file.url, { method: "DELETE" });
     if (!response.ok) {
       const result = await response.json().catch(() => ({}));
@@ -2475,6 +2490,7 @@ async function uploadCreatorFiles(recordId) {
   }
   creatorTitleForm.elements.manuscript.value = "";
   creatorTitleForm.elements.cover.value = "";
+  refreshCreatorUploadSelections();
   const refreshedBook = hasApprovedCreatorAccess() ? activeCreatorBook : creatorApplicationData?.book;
   renderExistingCreatorFile("manuscript", refreshedBook?.manuscript);
   renderExistingCreatorFile("cover", refreshedBook?.cover);
@@ -2488,6 +2504,7 @@ async function uploadCreatorBulkFile(applicationId) {
   const refreshed = await fetch("/api/creator-applications/me");
   if (refreshed.ok) creatorApplicationData = await refreshed.json();
   creatorTitleForm.elements.bulkFile.value = "";
+  refreshCreatorUploadSelections();
   renderExistingCreatorFile("bulk", creatorApplicationData?.application?.bulkFile);
 }
 
