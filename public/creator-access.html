@@ -241,8 +241,7 @@
           <li class="is-active" data-creator-step-indicator="1"><span>1</span>Applicant</li>
           <li data-creator-step-indicator="2"><span>2</span>Details</li>
           <li data-creator-step-indicator="3"><span>3</span>Presence</li>
-          <li data-creator-step-indicator="4"><span>4</span>Rights</li>
-          <li data-creator-step-indicator="5"><span>5</span>Book</li>
+          <li data-creator-step-indicator="4"><span>4</span>Book Upload</li>
           <li data-creator-step-indicator="6"><span>6</span>Files</li>
           <li data-creator-step-indicator="7"><span>7</span>Review</li>
         </ol>
@@ -252,7 +251,6 @@
             <div class="creator-form-intro">
               <span class="creator-question-number">01 →</span>
               <h3>Who is applying?</h3>
-              <p>This changes which details and upload options we show next.</p>
             </div>
             <div class="creator-choice-grid">
               <label class="creator-choice-card"><input name="creatorType" type="radio" value="author" required /><span><b>A</b><strong>Author</strong><small>I am submitting my own work.</small></span></label>
@@ -263,12 +261,11 @@
           <section class="creator-form-step" data-creator-step="2" hidden>
             <div class="creator-form-intro">
               <span class="creator-question-number">02 →</span>
-              <h3 data-creator-profile-heading>Tell us about you.</h3>
-              <p data-creator-profile-copy>Use the name we can verify. A pen name can still appear publicly.</p>
+              <h3 data-creator-profile-heading>Author Personal Details</h3>
             </div>
             <div class="creator-form-grid">
               <label>
-                <span data-creator-legal-label>Author name</span> <b class="creator-required" aria-label="required">*</b>
+                <strong data-creator-legal-label>Author name</strong> <b class="creator-required" aria-label="required">*</b>
                 <input name="legalName" type="text" maxlength="160" autocomplete="name" required />
               </label>
               <label>
@@ -277,9 +274,8 @@
               </label>
               <label class="creator-form-wide">
                 About you or your publishing organization
-                <textarea name="biography" rows="4" maxlength="4000" placeholder="Optional background for the review team"></textarea>
+                <textarea name="biography" rows="4" maxlength="4000" placeholder="Tell us about yourself"></textarea>
               </label>
-              <label class="creator-form-wide">How can we verify your identity and publishing relationship? <b class="creator-required" aria-label="required">*</b><textarea name="verificationDetails" rows="4" maxlength="4000" required placeholder="For example: your author profile, publisher role, or rights relationship"></textarea></label>
             </div>
           </section>
 
@@ -289,25 +285,32 @@
               <h3>Where can we find you online?</h3>
               <p>Add at least one presence we can use to verify your identity or authorship.</p>
             </div>
-            <div class="creator-form-grid">
-              <label class="creator-form-wide">Primary website or publisher listing<input name="website" type="url" maxlength="500" placeholder="https://"></label>
-            </div>
             <div class="creator-social-list" data-creator-social-list></div>
             <button class="creator-add-contributor" type="button" data-add-social>+ Add another online presence</button>
-            <label class="creator-form-check creator-no-presence"><input name="noOnlinePresence" type="checkbox" /><span>I don’t have a website or social profile. Free Bookery may contact me for another way to verify my identity.</span></label>
+            <div class="creator-form-check creator-no-presence">
+              <label><input name="noOnlinePresence" type="checkbox" /><span>I don’t have a website or social profile.</span></label>
+              <button class="creator-info-button" type="button" aria-label="Why we ask about an online presence" aria-describedby="creator-no-presence-help">i</button>
+              <span class="creator-info-tooltip" id="creator-no-presence-help" role="tooltip">Free Bookery may contact me for another way to verify my identity.</span>
+            </div>
           </section>
 
           <section class="creator-form-step" data-creator-step="4" hidden>
-            <div class="creator-form-intro"><span class="creator-question-number">04 →</span><h3>How are you submitting books?</h3></div>
+            <div class="creator-form-intro"><span class="creator-question-number">04 →</span><h3>Book Upload</h3></div>
             <div class="creator-choice-grid">
               <label class="creator-choice-card"><input name="submissionMode" type="radio" value="individual" required /><span><b>A</b><strong>One book</strong><small>Recommended for Authors. Enter metadata and upload a readable PDF or EPUB.</small></span></label>
               <label class="creator-choice-card"><input name="submissionMode" type="radio" value="bulk" /><span><b>B</b><strong>Bulk catalog</strong><small>Recommended for Publishers. Send a spreadsheet, PDF catalog, or shared link for admin-assisted intake.</small></span></label>
             </div>
-            <fieldset class="creator-rights"><legend>Publishing rights <b class="creator-required" aria-label="required">*</b></legend><label><input name="rights" type="radio" value="copyright" required /> I own or administer the copyright and necessary worldwide publishing rights.</label><label><input name="rights" type="radio" value="public-domain" /> The submitted work is in the public domain.</label></fieldset>
+            <fieldset class="creator-rights"><legend>Publishing rights <b class="creator-required" aria-label="required">*</b></legend><div class="creator-rights-choices"><label><input name="rights" type="radio" value="copyright" required /> I own or administer the copyright and necessary worldwide publishing rights.</label><label><input name="rights" type="radio" value="public-domain" /> The submitted work is in the public domain.</label></div></fieldset>
+            <div class="creator-policy-notice">
+              <strong>Content Guidelines</strong>
+              <p>By uploading your content, you agree to our <a href="content-guidelines.html" target="_blank" rel="noopener">Content Guidelines</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>, and <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>.</p>
+            </div>
+            <div class="creator-path-details" data-individual-details hidden></div>
+            <div class="creator-path-details" data-bulk-details hidden></div>
           </section>
 
           <section class="creator-form-step" data-creator-step="5" data-individual-step hidden>
-            <div class="creator-form-intro"><span class="creator-question-number">05 →</span><h3>Tell us about the book.</h3><p>Required fields mirror the reference application. Optional metadata can be added now or later.</p></div>
+            <div class="creator-form-intro"><span class="creator-question-number">05 →</span><h3>Enter eBook details</h3></div>
             <div class="creator-form-grid">
               <label class="creator-form-wide">Existing book listing<input name="sourceUrl" type="url" maxlength="1000" placeholder="Amazon, Google Books, publisher page, etc."></label>
               <label>ISBN <b class="creator-required" aria-label="required">*</b><input name="isbn" type="text" inputmode="numeric" required></label>
@@ -316,7 +319,7 @@
               <label>Series<input name="series" type="text"></label>
               <label>Edition<input name="edition" type="text"></label>
               <section class="creator-detail-block creator-form-wide"><div><h4>Primary author</h4><p>At least one author is required. Pen names are allowed.</p></div><div class="creator-name-row"><label>First name <b class="creator-required" aria-label="required">*</b><input name="authorFirstName" type="text" required></label><label>Last name <b class="creator-required" aria-label="required">*</b><input name="authorLastName" type="text" required></label></div></section>
-              <section class="creator-detail-block creator-form-wide"><div><h4>Other contributors</h4><p>Add authors, editors, illustrators, or translators in display order.</p></div><div class="creator-contributor-controls"><button class="creator-add-contributor" type="button" data-add-contributor>+ Add contributor</button><div class="creator-contributors" data-creator-contributors></div></div></section>
+              <section class="creator-detail-block creator-form-wide"><div class="creator-contributor-controls"><div class="creator-contributors" data-creator-contributors></div><button class="creator-add-contributor" type="button" data-add-contributor>+ Add contributor</button></div></section>
               <label class="creator-form-wide">Description or synopsis<textarea name="description" rows="5" maxlength="4000"></textarea></label>
               <label>Language<select name="language"><option>English</option><option>Spanish</option><option>French</option><option>Chinese</option><option>Other</option></select></label>
               <label>Age range<select name="readingAge"><option>Adult</option><option>Young Adult</option><option>Kids</option></select></label>
@@ -365,7 +368,7 @@
             </label>
           </section>
 
-          <p class="creator-form-message" data-creator-form-message role="status" aria-live="polite">Changes save automatically.</p>
+          <p class="creator-form-message" data-creator-form-message role="status" aria-live="polite"></p>
           <button type="button" class="upload-cancel-button" data-creator-upload-cancel hidden>Cancel upload</button>
           <div class="creator-form-actions">
             <button type="button" class="creator-form-back" data-creator-form-back hidden>Back</button>

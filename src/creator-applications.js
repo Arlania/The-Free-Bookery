@@ -18,6 +18,7 @@ const textLimits = {
   biography: 4000,
   website: 500,
   verificationDetails: 4000,
+  socialPlatformName: 80,
   socialLinks: 6000,
   submissionMode: 20,
   bulkLink: 1000,
@@ -97,6 +98,7 @@ function normalizeSocialLinks(value) {
   const allowed = new Set(["website", "facebook", "youtube", "instagram", "tiktok", "other"]);
   const normalized = links.map((item) => ({
     platform: cleanText(item?.platform || "other", "creatorType").toLowerCase(),
+    platformName: cleanText(item?.platformName, "socialPlatformName"),
     url: cleanText(item?.url, "website"),
   })).filter((item) => item.url);
   for (const item of normalized) {
@@ -402,11 +404,13 @@ async function updateDraft(env, userId, applicationId, payload) {
 function validateSubmission(row) {
   const missing = [];
   if (!row.legal_name) missing.push("legal name");
-  if (!row.verification_details) missing.push("verification details");
   if (!websiteIsValid(row.website || "")) missing.push("a valid website URL");
   let socialLinks = [];
   try { socialLinks = JSON.parse(row.social_links || "[]"); } catch { socialLinks = []; }
   if (socialLinks.some((item) => !websiteIsValid(item.url || ""))) missing.push("valid online-profile URLs");
+  if (socialLinks.some((item) => item.platform === "other" && !item.platformName)) {
+    missing.push("the name of each custom online-profile platform");
+  }
   if (!row.no_online_presence && !row.website && !socialLinks.length) {
     missing.push("an online presence or the no-online-presence confirmation");
   }

@@ -103,6 +103,8 @@ const creatorApplicationStatus = document.querySelector(
 );
 const creatorDuplicateNote = document.querySelector("[data-creator-duplicate-note]");
 const creatorUploadCancel = document.querySelector("[data-creator-upload-cancel]");
+const creatorIndividualDetails = document.querySelector("[data-individual-details]");
+const creatorBulkDetails = document.querySelector("[data-bulk-details]");
 const starredGrid = document.querySelector("[data-starred-grid]");
 const creatorApplicationOpenButtons = document.querySelectorAll(
   "[data-creator-application-open]"
@@ -146,6 +148,7 @@ let saveBookTrigger = null;
 let homeRecentSearchesExpanded = false;
 let creatorFormStep = 1;
 let creatorAutosaveTimer = 0;
+let creatorSavedMessageTimer = 0;
 let creatorAutosavePaused = false;
 let creatorAutosavePromise = Promise.resolve();
 let creatorDraftCreatedForFlow = false;
@@ -153,6 +156,29 @@ let currentAccount = null;
 let accountStateResolved = false;
 let creatorApplicationData = null;
 let creatorBooks = [];
+
+const creatorBookDetailsStep = creatorTitleForm?.querySelector('[data-creator-step="5"]');
+if (creatorBookDetailsStep && creatorIndividualDetails) {
+  creatorBookDetailsStep.querySelector(".creator-question-number")?.remove();
+  while (creatorBookDetailsStep.firstChild) {
+    creatorIndividualDetails.append(creatorBookDetailsStep.firstChild);
+  }
+  creatorBookDetailsStep.remove();
+}
+const creatorBulkFiles = creatorTitleForm?.querySelector("[data-bulk-files]");
+if (creatorBulkFiles && creatorBulkDetails) {
+  creatorBulkFiles.hidden = false;
+  creatorBulkDetails.append(creatorBulkFiles);
+}
+
+function showCreatorSavedMessage() {
+  if (!creatorFormMessage) return;
+  window.clearTimeout(creatorSavedMessageTimer);
+  creatorFormMessage.textContent = "Changes saved.";
+  creatorSavedMessageTimer = window.setTimeout(() => {
+    if (creatorFormMessage.textContent === "Changes saved.") creatorFormMessage.textContent = "";
+  }, 3000);
+}
 let activeCreatorBook = null;
 let readerCollections = [];
 let starredBooks = [];
@@ -1921,9 +1947,9 @@ function creatorSubmissionMode() {
 
 function creatorStepSequence() {
   if (hasApprovedCreatorAccess()) {
-    return creatorSubmissionMode() === "bulk" ? [4, 6] : [4, 5, 6, 7];
+    return creatorSubmissionMode() === "bulk" ? [4] : [4, 6, 7];
   }
-  return creatorSubmissionMode() === "bulk" ? [1, 2, 3, 4, 6, 7] : [1, 2, 3, 4, 5, 6, 7];
+  return creatorSubmissionMode() === "bulk" ? [1, 2, 3, 4, 7] : [1, 2, 3, 4, 6, 7];
 }
 
 function updateCreatorConditionalUI() {
@@ -1931,25 +1957,23 @@ function updateCreatorConditionalUI() {
   const creatorType = String(new FormData(creatorTitleForm).get("creatorType") || "author");
   const bulk = creatorSubmissionMode() === "bulk";
   const heading = document.querySelector("[data-creator-profile-heading]");
-  const copy = document.querySelector("[data-creator-profile-copy]");
   const legalLabel = document.querySelector("[data-creator-legal-label]");
-  if (heading) heading.textContent = creatorType === "publisher" ? "Tell us about the publisher." : "Tell us about you.";
-  if (copy) copy.textContent = creatorType === "publisher" ? "Use the publisher name and details our team can verify." : "Use the name we can verify. A pen name can still appear publicly.";
+  if (heading) heading.textContent = creatorType === "publisher" ? "Publisher Details" : "Author Personal Details";
   if (legalLabel) legalLabel.textContent = creatorType === "publisher" ? "Publisher name" : "Author name";
-  document.querySelector("[data-individual-files]").hidden = bulk;
-  document.querySelector("[data-bulk-files]").hidden = !bulk;
+  const formData = new FormData(creatorTitleForm);
+  const pathIsReady = Boolean(formData.get("submissionMode") && formData.get("rights"));
+  if (creatorIndividualDetails) creatorIndividualDetails.hidden = !pathIsReady || bulk;
+  if (creatorBulkDetails) creatorBulkDetails.hidden = !pathIsReady || !bulk;
+  creatorIndividualDetails?.querySelectorAll("input, select, textarea").forEach((field) => { field.disabled = !pathIsReady || bulk; });
+  creatorBulkDetails?.querySelectorAll("input, select, textarea").forEach((field) => { field.disabled = !pathIsReady || !bulk; });
   const bulkContact = document.querySelector("[data-bulk-contact]");
   const bulkIntake = document.querySelector("[data-bulk-intake]");
   if (bulkContact) bulkContact.hidden = !(bulk && hasApprovedCreatorAccess());
   if (bulkIntake) bulkIntake.hidden = bulk && hasApprovedCreatorAccess();
   const filesHeading = document.querySelector("[data-creator-files-heading]");
   const filesCopy = document.querySelector("[data-creator-files-copy]");
-  if (filesHeading) filesHeading.textContent = bulk ? "Share your catalog." : "Upload the book.";
-  if (filesCopy) filesCopy.textContent = bulk
-    ? (hasApprovedCreatorAccess()
-      ? "Bulk intake is arranged directly with our team and does not create another review item."
-      : "Send a catalog file or shared link. Admins will coordinate the readable book files with you.")
-    : "PDF and EPUB are the reader formats Free Bookery can validate and publish.";
+  if (filesHeading) filesHeading.textContent = "Upload the book.";
+  if (filesCopy) filesCopy.textContent = "PDF and EPUB are the reader formats Free Bookery can validate and publish.";
   const bookType = String(new FormData(creatorTitleForm).get("bookType") || "");
   document.querySelectorAll("[data-genre-type]").forEach((label) => {
     const visible = Boolean(bookType) && (label.dataset.genreType === "all" || label.dataset.genreType === bookType);
@@ -2007,7 +2031,7 @@ function setCreatorTitleModal(open) {
     const laterBook = hasApprovedCreatorAccess();
     const title = document.querySelector("#creator-form-title");
     if (title) title.textContent = laterBook ? "Submit a book" : "Author application & first book";
-    ["creatorType", "legalName", "penName", "website", "biography", "verificationDetails"].forEach((name) => {
+    ["creatorType", "legalName", "penName", "biography"].forEach((name) => {
       creatorTitleForm.querySelectorAll(`[name="${name}"]`).forEach((field) => { field.disabled = laterBook; });
     });
     populateCreatorForm();
@@ -2108,10 +2132,24 @@ function addCreatorSocial(value = {}) {
     <option value="website">Website or author listing</option><option value="facebook">Facebook</option>
     <option value="youtube">YouTube</option><option value="instagram">Instagram</option>
     <option value="tiktok">TikTok</option><option value="other">Other</option>
-  </select></label><label>Link<input data-social-url type="url" maxlength="500" placeholder="https://"></label>
+  </select></label>
+  <label class="creator-social-other" data-social-other-field hidden>Platform name<input data-social-platform-name type="text" maxlength="80"></label>
+  <label>Link<input data-social-url type="url" maxlength="500" placeholder="https://"></label>
   <button type="button" aria-label="Remove online presence">Remove</button>`;
-  row.querySelector("[data-social-platform]").value = value.platform || "website";
+  const platformSelect = row.querySelector("[data-social-platform]");
+  const otherField = row.querySelector("[data-social-other-field]");
+  const otherInput = row.querySelector("[data-social-platform-name]");
+  platformSelect.value = value.platform || "website";
+  otherInput.value = value.platformName || "";
   row.querySelector("[data-social-url]").value = value.url || "";
+  const updateOtherPlatform = () => {
+    const isOther = platformSelect.value === "other";
+    otherField.hidden = !isOther;
+    otherInput.required = isOther;
+    if (!isOther) otherInput.value = "";
+  };
+  platformSelect.addEventListener("change", updateOtherPlatform);
+  updateOtherPlatform();
   row.querySelector("button").addEventListener("click", () => {
     row.remove();
     scheduleCreatorAutosave();
@@ -2122,6 +2160,7 @@ function addCreatorSocial(value = {}) {
 function creatorSocialValues() {
   return Array.from(creatorSocialList?.children || []).map((row) => ({
     platform: row.querySelector("[data-social-platform]")?.value || "other",
+    platformName: String(row.querySelector("[data-social-platform-name]")?.value || "").trim(),
     url: String(row.querySelector("[data-social-url]")?.value || "").trim(),
   })).filter((item) => item.url);
 }
@@ -2153,13 +2192,15 @@ function populateCreatorForm() {
     setCreatorField("legalName", application.legalName);
     setCreatorField("penName", application.penName);
     setCreatorField("biography", application.biography);
-    setCreatorField("website", application.website);
-    setCreatorField("verificationDetails", application.verificationDetails);
     setCreatorField("noOnlinePresence", application.noOnlinePresence);
     setCreatorField("submissionMode", application.submissionMode || "individual");
     setCreatorField("bulkLink", application.bulkLink);
     setCreatorField("policyConfirmation", application.policyConfirmation);
-    (application.socialLinks?.length ? application.socialLinks : [{}]).forEach(addCreatorSocial);
+    const savedSocialLinks = [...(application.socialLinks || [])];
+    if (application.website && !savedSocialLinks.some((item) => item.url === application.website)) {
+      savedSocialLinks.unshift({ platform: "website", url: application.website });
+    }
+    (savedSocialLinks.length ? savedSocialLinks : [{}]).forEach(addCreatorSocial);
   } else {
     setCreatorField("submissionMode", "individual");
   }
@@ -2394,7 +2435,7 @@ function creatorStepIsValid() {
   );
   const fields = currentPanel?.querySelectorAll("input, select, textarea") || [];
 
-  if (creatorFormStep === 5) updateCreatorGenreState();
+  if (creatorFormStep === 4 && creatorSubmissionMode() === "individual") updateCreatorGenreState();
 
   if (creatorFormStep === 3 && !hasApprovedCreatorAccess()) {
     const data = getCreatorFormData().application;
@@ -2403,7 +2444,7 @@ function creatorStepIsValid() {
       return false;
     }
   }
-  if (creatorFormStep === 6 && creatorSubmissionMode() === "bulk" && !hasApprovedCreatorAccess()) {
+  if (creatorFormStep === 4 && creatorSubmissionMode() === "bulk" && !hasApprovedCreatorAccess()) {
     const application = creatorApplicationData?.application;
     const link = String(creatorTitleForm.elements.bulkLink?.value || "").trim();
     const file = creatorTitleForm.elements.bulkFile?.files?.[0];
@@ -2426,6 +2467,7 @@ function getCreatorFormData() {
   const formData = new FormData(creatorTitleForm);
   const manuscript = formData.get("manuscript");
   const cover = formData.get("cover");
+  const socialLinks = creatorSocialValues();
 
   return {
     application: {
@@ -2433,11 +2475,8 @@ function getCreatorFormData() {
       legalName: String(formData.get("legalName") || "").trim(),
       penName: String(formData.get("penName") || "").trim(),
       biography: String(formData.get("biography") || "").trim(),
-      website: String(formData.get("website") || "").trim(),
-      verificationDetails: String(
-        formData.get("verificationDetails") || ""
-      ).trim(),
-      socialLinks: creatorSocialValues(),
+      website: socialLinks.find((item) => item.platform === "website")?.url || "",
+      socialLinks,
       noOnlinePresence: Boolean(formData.get("noOnlinePresence")),
       submissionMode: String(formData.get("submissionMode") || "individual"),
       policyConfirmation: Boolean(formData.get("policyConfirmation")),
@@ -2569,10 +2608,9 @@ async function saveCreatorDraft(includeFiles = false) {
   creatorAutosavePromise = creatorAutosavePromise.catch(() => {}).then(async () => {
     if (!creatorTitleModal || creatorTitleModal.hidden || creatorAutosavePaused) return;
     if (hasApprovedCreatorAccess() && creatorSubmissionMode() === "bulk") {
-      creatorFormMessage.textContent = "Bulk catalogs are arranged directly with our team.";
       return;
     }
-    creatorFormMessage.textContent = includeFiles ? "Saving draft…" : "Saving…";
+    creatorFormMessage.textContent = includeFiles ? "Saving files…" : "";
     if (hasApprovedCreatorAccess()) {
       if (!activeCreatorBook) throw new Error("Start a book draft first.");
       const response = await fetch(`/api/author/books/${activeCreatorBook.id}`, {
@@ -2585,7 +2623,7 @@ async function saveCreatorDraft(includeFiles = false) {
       if (includeFiles) await uploadCreatorFiles(activeCreatorBook.id);
       const index = creatorBooks.findIndex((book) => book.id === activeCreatorBook.id);
       if (index >= 0) creatorBooks[index] = activeCreatorBook;
-      creatorFormMessage.textContent = "Saved just now.";
+      showCreatorSavedMessage();
       renderCreatorDashboard();
       return;
     }
@@ -2605,7 +2643,7 @@ async function saveCreatorDraft(includeFiles = false) {
       if (creatorSubmissionMode() === "bulk") await uploadCreatorBulkFile(creatorApplicationData.application.id);
       else await uploadCreatorFiles(creatorApplicationData.application.id);
     }
-    creatorFormMessage.textContent = "Saved just now.";
+    showCreatorSavedMessage();
     renderCreatorApplicationStatus();
   });
   return creatorAutosavePromise;
@@ -2614,11 +2652,10 @@ async function saveCreatorDraft(includeFiles = false) {
 function scheduleCreatorAutosave() {
   if (creatorAutosavePaused || !creatorTitleModal || creatorTitleModal.hidden) return;
   if (hasApprovedCreatorAccess() && creatorSubmissionMode() === "bulk") {
-    creatorFormMessage.textContent = "Bulk catalogs are arranged directly with our team.";
     return;
   }
   window.clearTimeout(creatorAutosaveTimer);
-  creatorFormMessage.textContent = "Changes not saved yet…";
+  creatorFormMessage.textContent = "";
   creatorAutosaveTimer = window.setTimeout(() => {
     saveCreatorDraft(false).catch((error) => { creatorFormMessage.textContent = error.message; });
   }, 900);

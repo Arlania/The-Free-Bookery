@@ -195,12 +195,11 @@ function renderDetail(submission) {
         ["Website", submission.applicant.website], ["Rights confirmed", submission.applicant.rightsConfirmation],
         ["Submission path", submission.applicant.submissionMode],
         ["No online presence", submission.applicant.noOnlinePresence],
-        ["Online profiles", (submission.applicant.socialLinks || []).map((item) => `${item.platform}: ${item.url}`).join("\n"), true],
+        ["Online profiles", (submission.applicant.socialLinks || []).map((item) => `${item.platform === "other" ? (item.platformName || "Other") : item.platform}: ${item.url}`).join("\n"), true],
         ["Bulk catalog link", submission.applicant.bulkLink],
         ["Bulk catalog file", submission.applicant.bulkFile?.url || ""],
         ["Policies confirmed", submission.applicant.policyConfirmation],
         ["Biography", submission.applicant.biography, true],
-        ["Verification details", submission.applicant.verificationDetails, true],
       ]),
       reviewActions(submission)
     );
