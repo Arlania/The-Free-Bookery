@@ -5996,32 +5996,50 @@ img, svg, video, canvas { max-width: 100%; }
 .creator-bulk-contact a { border-radius: 999px; padding: 13px 20px; background: var(--ink); color: #fffaf0; font-weight: 850; text-decoration: none; }
 .creator-bulk-contact small { color: var(--muted-text); }
 
-.creator-review-card {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1px;
-  margin-top: 28px;
-  overflow: hidden;
-  border: 1px solid rgba(16, 11, 43, 0.14);
-  border-radius: 12px;
-  background: rgba(16, 11, 43, 0.14);
-}
-
-.creator-review-card > div {
-  display: grid;
-  gap: 6px;
-  padding: 16px;
-  background: #fff;
-}
-
-.creator-review-card span {
-  color: var(--muted-text);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-}
-
 .creator-submit-confirmation {
   margin-top: 24px;
+}
+
+.creator-confirm-modal,
+.creator-success-modal { z-index: 160; }
+.creator-confirm-dialog,
+.creator-success-dialog {
+  position: relative;
+  z-index: 2;
+  width: min(100%, 560px);
+  border: 1px solid rgba(16,11,43,.14);
+  border-radius: 20px;
+  padding: clamp(30px, 6vw, 52px);
+  background: #fffaf0;
+  color: var(--ink);
+  box-shadow: 0 28px 80px rgba(0,0,0,.28);
+}
+.creator-confirm-dialog .modal-close { color: var(--ink); }
+.creator-confirm-dialog h2,
+.creator-success-dialog h2 { margin: 0 0 18px; color: var(--ink); font-size: clamp(1.8rem, 5vw, 2.7rem); line-height: 1.08; }
+.creator-confirm-dialog p { margin: 0 0 14px; color: var(--muted-text); line-height: 1.65; }
+.creator-confirm-dialog a { color: #7b5d00; font-weight: 750; text-underline-offset: .15em; }
+.creator-confirm-message { min-height: 1.4em; color: #9b2c2c !important; font-size: .9rem; }
+.creator-confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.creator-confirm-actions button,
+.creator-success-dialog > button:last-child { min-height: 44px; border: 1px solid rgba(16,11,43,.2); border-radius: 999px; padding: 0 18px; background: transparent; color: var(--ink); cursor: pointer; font: inherit; font-weight: 800; }
+.creator-confirm-actions button:last-child,
+.creator-success-dialog > button:last-child { border-color: var(--ink); background: var(--ink); color: #fffaf0; }
+.creator-confirm-actions button:disabled { cursor: wait; opacity: .65; }
+
+.creator-success-dialog { display: grid; justify-items: center; text-align: center; }
+.creator-success-close { position: absolute; top: 14px; right: 16px; width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; color: var(--ink); cursor: pointer; font-size: 2rem; line-height: 1; }
+.creator-success-mark { display: grid; width: 64px; height: 64px; place-items: center; margin-bottom: 22px; border-radius: 50%; background: #fff0d8; color: #7b5d00; font-size: 2rem; font-weight: 900; }
+.creator-success-dialog h2 { max-width: 440px; }
+.creator-success-dialog > button:last-child { margin-top: 12px; }
+.creator-confetti { position: fixed; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
+.creator-confetti span { position: absolute; top: -10vh; left: 0; width: 10px; height: 18px; border-radius: 2px; animation: creator-confetti-fall var(--confetti-duration) cubic-bezier(.18,.72,.38,1) var(--confetti-delay) forwards; }
+@keyframes creator-confetti-fall {
+  from { transform: translate3d(var(--confetti-x), -10vh, 0) rotate(0deg); opacity: 1; }
+  to { transform: translate3d(var(--confetti-x), 115vh, 0) rotate(var(--confetti-rotate)); opacity: .9; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .creator-confetti span { animation: none; display: none; }
 }
 
 .creator-form-message {
@@ -6075,8 +6093,7 @@ img, svg, video, canvas { max-width: 100%; }
 
   .creator-dashboard-summary,
   .creator-form-grid,
-  .creator-upload-grid,
-  .creator-review-card {
+  .creator-upload-grid {
     grid-template-columns: 1fr;
   }
 
@@ -6122,4 +6139,5 @@ img, svg, video, canvas { max-width: 100%; }
   }
 
   .creator-form-actions .creator-nav-arrow { align-self: auto; }
+  .creator-confirm-actions { align-items: stretch; flex-direction: column-reverse; }
 }

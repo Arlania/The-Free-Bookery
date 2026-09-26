@@ -84,7 +84,6 @@ const creatorEmptyLibrary = document.querySelector("[data-creator-empty-library]
 const creatorTitleModal = document.querySelector("[data-creator-title-modal]");
 const creatorTitleForm = document.querySelector(".creator-title-form");
 const creatorFormMessage = document.querySelector("[data-creator-form-message]");
-const creatorReview = document.querySelector("[data-creator-review]");
 const creatorNextButton = document.querySelector("[data-creator-form-next]");
 const creatorBackButton = document.querySelector("[data-creator-form-back]");
 const creatorSubmitButton = document.querySelector("[data-creator-form-submit]");
@@ -103,6 +102,11 @@ const creatorDuplicateNote = document.querySelector("[data-creator-duplicate-not
 const creatorUploadCancel = document.querySelector("[data-creator-upload-cancel]");
 const creatorIndividualDetails = document.querySelector("[data-individual-details]");
 const creatorBulkDetails = document.querySelector("[data-bulk-details]");
+const creatorConfirmModal = document.querySelector("[data-creator-confirm-modal]");
+const creatorConfirmSubmit = document.querySelector("[data-creator-confirm-submit]");
+const creatorConfirmMessage = document.querySelector("[data-creator-confirm-message]");
+const creatorSuccessModal = document.querySelector("[data-creator-success-modal]");
+const creatorConfetti = document.querySelector("[data-creator-confetti]");
 const starredGrid = document.querySelector("[data-starred-grid]");
 const creatorApplicationOpenButtons = document.querySelectorAll(
   "[data-creator-application-open]"
@@ -166,7 +170,7 @@ if (creatorBookDetailsStep && creatorIndividualDetails) {
 const creatorBulkFiles = creatorTitleForm?.querySelector("[data-bulk-files]");
 if (creatorBulkFiles && creatorBulkDetails) {
   creatorBulkFiles.hidden = false;
-  creatorBulkDetails.append(creatorBulkFiles);
+  creatorBulkDetails.prepend(creatorBulkFiles);
 }
 
 function showCreatorSavedMessage() {
@@ -1965,9 +1969,9 @@ function creatorSubmissionMode() {
 
 function creatorStepSequence() {
   if (hasApprovedCreatorAccess()) {
-    return creatorSubmissionMode() === "bulk" ? [4] : [4, 6, 7];
+    return creatorSubmissionMode() === "bulk" ? [4] : [4, 6];
   }
-  return creatorSubmissionMode() === "bulk" ? [1, 2, 3, 4, 7] : [1, 2, 3, 4, 6, 7];
+  return creatorSubmissionMode() === "bulk" ? [1, 2, 3, 4] : [1, 2, 3, 4, 6];
 }
 
 function updateCreatorConditionalUI() {
@@ -1991,6 +1995,8 @@ function updateCreatorConditionalUI() {
   if (creatorBulkDetails) creatorBulkDetails.hidden = !pathIsReady || !bulk;
   creatorIndividualDetails?.querySelectorAll("input, select, textarea").forEach((field) => { field.disabled = !pathIsReady || bulk; });
   creatorBulkDetails?.querySelectorAll("input, select, textarea").forEach((field) => { field.disabled = !pathIsReady || !bulk; });
+  document.querySelectorAll("[data-individual-files] input, [data-individual-files] select, [data-individual-files] textarea")
+    .forEach((field) => { field.disabled = bulk; });
   const bulkContact = document.querySelector("[data-bulk-contact]");
   const bulkIntake = document.querySelector("[data-bulk-intake]");
   if (bulkContact) bulkContact.hidden = !(bulk && hasApprovedCreatorAccess());
@@ -2031,13 +2037,12 @@ function updateCreatorFormStep(step) {
   if (creatorNextButton) creatorNextButton.hidden = creatorFormStep === sequence.at(-1);
   if (creatorSubmitButton) creatorSubmitButton.hidden = creatorFormStep !== sequence.at(-1);
   if (creatorSubmitButton) creatorSubmitButton.textContent = hasApprovedCreatorAccess() && creatorSubmissionMode() === "bulk"
-    ? "Return to dashboard" : "Submit for review";
+    ? "Return to dashboard" : "Submit";
 
   const activePanel = creatorTitleForm.querySelector(`[data-creator-step="${creatorFormStep}"]`);
   const questionNumber = activePanel?.querySelector(".creator-question-number");
   if (questionNumber) questionNumber.textContent = `${String(sequence.indexOf(creatorFormStep) + 1).padStart(2, "0")} →`;
 
-  if (creatorFormStep === sequence.at(-1)) renderCreatorReview();
   requestAnimationFrame(() => {
     creatorTitleModal?.scrollTo({ top: 0, behavior: "auto" });
   });
@@ -2594,38 +2599,6 @@ function getCreatorFormData() {
   };
 }
 
-function renderCreatorReview() {
-  if (!creatorReview || !creatorTitleForm) return;
-  const data = getCreatorFormData();
-  const title = data.book;
-  const bulk = data.application.submissionMode === "bulk" && !hasApprovedCreatorAccess();
-  const reviewItems = [
-    ["Applicant", hasApprovedCreatorAccess() ? (currentAccount?.name || "Author") : (data.application.legalName || "Not added")],
-    ["Submission", hasApprovedCreatorAccess() ? "New book" : data.application.creatorType],
-    ["Path", bulk ? "Bulk catalog" : "Individual book"],
-    ...(bulk ? [
-      ["Catalog link", data.application.bulkLink || "Not provided"],
-      ["Catalog file", creatorApplicationData?.application?.bulkFile?.name || creatorTitleForm.elements.bulkFile?.files?.[0]?.name || "Not uploaded"],
-    ] : [
-      ["Title", title.title || "Not added"], ["Author", title.author || "Not added"],
-      ["Language", title.language], ["ISBN", title.isbn || "Not provided"],
-      ["Category", title.categories || "Not added"], ["Book file", title.manuscriptName || "Not uploaded"],
-      ["Cover", title.coverName || "Generated if omitted"],
-    ]),
-  ];
-
-  creatorReview.replaceChildren();
-  reviewItems.forEach(([label, value]) => {
-    const item = document.createElement("div");
-    const name = document.createElement("span");
-    const content = document.createElement("strong");
-    name.textContent = label;
-    content.textContent = value;
-    item.append(name, content);
-    creatorReview.append(item);
-  });
-}
-
 document.querySelectorAll("[data-creator-title-open]").forEach((button) => {
   button.addEventListener("click", async () => {
     if (!hasApprovedCreatorAccess()) return setCreatorTitleModal(true);
@@ -2765,16 +2738,28 @@ creatorTitleForm?.addEventListener("change", (event) => {
   } else scheduleCreatorAutosave();
 });
 
-creatorTitleForm?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!creatorStepIsValid()) return;
+function setCreatorConfirmModal(open) {
+  if (!creatorConfirmModal) return;
+  creatorConfirmModal.classList.toggle("is-open", open);
+  creatorConfirmModal.setAttribute("aria-hidden", String(!open));
+  if (creatorConfirmMessage) creatorConfirmMessage.textContent = "";
+  if (open) creatorConfirmSubmit?.focus();
+}
 
+document.querySelectorAll("[data-creator-confirm-close]").forEach((button) => {
+  button.addEventListener("click", () => setCreatorConfirmModal(false));
+});
+creatorConfirmModal?.addEventListener("click", (event) => {
+  if (event.target === creatorConfirmModal) setCreatorConfirmModal(false);
+});
+
+async function submitCreatorForm() {
   try {
     if (hasApprovedCreatorAccess() && creatorSubmissionMode() === "bulk") {
       await discardUnusedCreatorDraftForBulk();
       setCreatorTitleModal(false);
       renderCreatorDashboard();
-      return;
+      return true;
     }
     if (hasApprovedCreatorAccess()) {
       if (!activeCreatorBook) throw new Error("Start a book draft first.");
@@ -2794,9 +2779,8 @@ creatorTitleForm?.addEventListener("submit", async (event) => {
       activeCreatorBook = submitResult.book;
       const index = creatorBooks.findIndex((book) => book.id === bookId);
       if (index >= 0) creatorBooks[index] = activeCreatorBook;
-      setCreatorTitleModal(false);
-      renderCreatorDashboard();
-      return;
+      window.location.href = "index.html?creatorSubmitted=1";
+      return true;
     }
     await ensureCreatorApplication();
     const applicationId = creatorApplicationData.application.id;
@@ -2825,11 +2809,66 @@ creatorTitleForm?.addEventListener("submit", async (event) => {
     }
 
     creatorApplicationData = submitResult;
-    setCreatorTitleModal(false);
-    renderCreatorApplicationStatus();
+    window.location.href = "index.html?creatorSubmitted=1";
+    return true;
   } catch (error) {
-    creatorFormMessage.textContent = error.message;
+    if (creatorConfirmModal?.classList.contains("is-open") && creatorConfirmMessage) {
+      creatorConfirmMessage.textContent = error.message;
+    } else if (creatorFormMessage) {
+      creatorFormMessage.textContent = error.message;
+    }
+    return false;
   }
+}
+
+creatorTitleForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!creatorStepIsValid()) return;
+  if (hasApprovedCreatorAccess() && creatorSubmissionMode() === "bulk") {
+    await submitCreatorForm();
+    return;
+  }
+  setCreatorConfirmModal(true);
+});
+
+creatorConfirmSubmit?.addEventListener("click", async () => {
+  creatorConfirmSubmit.disabled = true;
+  creatorConfirmSubmit.textContent = "Submitting…";
+  const submitted = await submitCreatorForm();
+  if (!submitted) {
+    creatorConfirmSubmit.disabled = false;
+    creatorConfirmSubmit.textContent = "Confirm submission";
+  }
+});
+
+function launchCreatorConfetti() {
+  if (!creatorConfetti) return;
+  creatorConfetti.replaceChildren();
+  const colors = ["#100b2b", "#a25c27", "#d79a5b", "#f2d6a4", "#fffaf0"];
+  for (let index = 0; index < 64; index += 1) {
+    const piece = document.createElement("span");
+    piece.style.setProperty("--confetti-x", `${Math.random() * 100}vw`);
+    piece.style.setProperty("--confetti-delay", `${-Math.random() * 1.8}s`);
+    piece.style.setProperty("--confetti-duration", `${2.4 + Math.random() * 1.8}s`);
+    piece.style.setProperty("--confetti-rotate", `${Math.round(Math.random() * 720 - 360)}deg`);
+    piece.style.background = colors[index % colors.length];
+    creatorConfetti.append(piece);
+  }
+}
+
+function setCreatorSuccessModal(open) {
+  if (!creatorSuccessModal) return;
+  creatorSuccessModal.classList.toggle("is-open", open);
+  creatorSuccessModal.setAttribute("aria-hidden", String(!open));
+  if (open) launchCreatorConfetti();
+  else creatorConfetti?.replaceChildren();
+}
+
+document.querySelectorAll("[data-creator-success-close]").forEach((button) => {
+  button.addEventListener("click", () => setCreatorSuccessModal(false));
+});
+creatorSuccessModal?.addEventListener("click", (event) => {
+  if (event.target === creatorSuccessModal) setCreatorSuccessModal(false);
 });
 
 updateUserState();
@@ -2840,6 +2879,14 @@ renderCreatorDashboard();
 initializeServerSession();
 setupReadingRequiredPrompt();
 setupBlogPostPreviews();
+
+const creatorSubmittedParameters = new URLSearchParams(window.location.search);
+if (creatorSuccessModal && creatorSubmittedParameters.get("creatorSubmitted") === "1") {
+  setCreatorSuccessModal(true);
+  creatorSubmittedParameters.delete("creatorSubmitted");
+  const cleanQuery = creatorSubmittedParameters.toString();
+  window.history.replaceState({}, "", `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}${window.location.hash}`);
+}
 
 const initialSearchQuery = new URLSearchParams(window.location.search).get(
   "query"

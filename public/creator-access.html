@@ -243,7 +243,6 @@
           <li data-creator-step-indicator="3"><span>3</span>Presence</li>
           <li data-creator-step-indicator="4"><span>4</span>Book Upload</li>
           <li data-creator-step-indicator="6"><span>6</span>Files</li>
-          <li data-creator-step-indicator="7"><span>7</span>Review</li>
         </ol>
 
         <form class="creator-title-form">
@@ -305,7 +304,12 @@
               <span><strong>Content Guidelines</strong><small>By uploading your content, you agree to our <a href="content-guidelines.html" target="_blank" rel="noopener">Content Guidelines</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>, and <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>. <b class="creator-required" aria-label="required">*</b></small></span>
             </label>
             <div class="creator-path-details" data-individual-details hidden></div>
-            <div class="creator-path-details" data-bulk-details hidden></div>
+            <div class="creator-path-details" data-bulk-details hidden>
+              <label class="creator-form-check creator-submit-confirmation">
+                <input name="bulkSubmissionConfirmation" type="checkbox" required />
+                <span>I confirm this information is accurate. <b class="creator-required" aria-label="required">*</b></span>
+              </label>
+            </div>
           </section>
 
           <section class="creator-form-step" data-creator-step="5" data-individual-step hidden>
@@ -337,6 +341,10 @@
             <div data-individual-files>
               <div class="creator-upload-grid"><label class="creator-upload-card" aria-label="Choose required book file"><span class="creator-upload-icon">BOOK</span><span>PDF or EPUB · up to 95 MB <b class="creator-required" aria-label="required">*</b></span><span class="creator-upload-action">Choose file</span><span class="creator-upload-selection" data-upload-selection="manuscript">No file selected</span><input name="manuscript" type="file" accept=".epub,.pdf,application/pdf,application/epub+zip"><span class="creator-existing-file" data-creator-existing-manuscript></span></label><label class="creator-upload-card" aria-label="Choose cover file"><span class="creator-upload-icon">COVER</span><span>JPG, PNG, or one-page PDF</span><span class="creator-upload-action">Choose file</span><span class="creator-upload-selection" data-upload-selection="cover">No file selected</span><input name="cover" type="file" accept="image/jpeg,image/png,application/pdf"><span class="creator-existing-file" data-creator-existing-cover></span></label></div>
               <p class="creator-reader-theme-note">A file must open successfully and its first page must render into a visible preview so we can confirm it is readable—not blank, corrupted, encrypted, or unsupported. Files stay private during review.</p>
+              <label class="creator-form-check creator-submit-confirmation">
+                <input name="submissionConfirmation" type="checkbox" required />
+                <span>I confirm this information is accurate. <b class="creator-required" aria-label="required">*</b></span>
+              </label>
             </div>
             <div data-bulk-files hidden>
               <div data-bulk-intake>
@@ -354,27 +362,27 @@
             </div>
           </section>
 
-          <section class="creator-form-step" data-creator-step="7" hidden>
-            <div class="creator-form-intro">
-              <span class="creator-question-number">07 →</span><h3>Ready for review?</h3>
-            </div>
-            <div class="creator-review-card" data-creator-review></div>
-            <label class="creator-form-check creator-submit-confirmation">
-              <input name="submissionConfirmation" type="checkbox" required />
-              <span>I confirm this information is accurate. <b class="creator-required" aria-label="required">*</b></span>
-            </label>
-          </section>
-
           <p class="creator-form-message" data-creator-form-message role="status" aria-live="polite"></p>
           <button type="button" class="upload-cancel-button" data-creator-upload-cancel hidden>Cancel upload</button>
           <div class="creator-form-actions">
             <button type="button" class="creator-form-back creator-nav-arrow" data-creator-form-back aria-label="Back" title="Back" hidden>&larr;</button>
             <button type="button" class="creator-form-next creator-nav-arrow" data-creator-form-next aria-label="Continue" title="Continue">&rarr;</button>
-            <button type="submit" class="creator-form-submit" data-creator-form-submit hidden>Submit for review</button>
+            <button type="submit" class="creator-form-submit" data-creator-form-submit hidden>Submit</button>
           </div>
         </form>
       </div>
     </section>
+
+    <div class="modal-overlay creator-confirm-modal" data-creator-confirm-modal aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="creator-confirm-title">
+      <div class="creator-confirm-dialog">
+        <button class="modal-close" type="button" data-creator-confirm-close aria-label="Close confirmation">&times;</button>
+        <h2 id="creator-confirm-title">Confirm submission</h2>
+        <p>By submitting, you agree to the Free Bookery's <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>, <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>, and <a href="content-guidelines.html" target="_blank" rel="noopener">Content Guidelines</a>.</p>
+        <p>To make your books easier to find for readers, consider making a collection!</p>
+        <p class="creator-confirm-message" data-creator-confirm-message role="status" aria-live="polite"></p>
+        <div class="creator-confirm-actions"><button type="button" data-creator-confirm-close>Cancel</button><button type="button" data-creator-confirm-submit>Confirm submission</button></div>
+      </div>
+    </div>
 
     <footer class="site-footer">
       <div class="footer-main">
