@@ -25,6 +25,9 @@ const bulkFile = {
   maxBytes: 95 * 1024 * 1024,
   allowed: new Set([
     "application/pdf",
+    "application/epub+zip",
+    "image/jpeg",
+    "image/png",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.ms-excel",
     "application/vnd.oasis.opendocument.spreadsheet",
@@ -139,6 +142,9 @@ async function uploadBulk(request, env, account, applicationId) {
   if (!["draft", "changes_requested"].includes(application.status)) {
     return error("Files can only be changed while the application is editable.", 409);
   }
+  if (application.bulk_delivery_method !== "files") {
+    return error("Choose Upload files directly before adding files.", 409);
+  }
   const contentType = (request.headers.get("content-type") || "").split(";")[0].toLowerCase();
   if (!bulkFile.allowed.has(contentType)) return error("Upload a PDF, XLS, XLSX, ODS, CSV, or TSV catalog file.", 415);
   const declaredSize = Number(request.headers.get("content-length") || 0);
@@ -199,6 +205,111 @@ async function removeBulk(request, env, account, applicationId) {
     bulk_content_type = NULL, bulk_size = NULL, bulk_uploaded_at = NULL,
     updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`)
     .bind(applicationId, application.user_id).run();
+  return new Response(null, { status: 204 });
+}
+
+function bulkItemMetadata(applicationId, file) {
+  return {
+    id: file.id,
+    kind: "bulk",
+    name: file.original_name,
+    contentType: file.content_type,
+    size: file.size,
+    uploadedAt: file.uploaded_at,
+    url: `/api/creator-applications/${applicationId}/files/bulk-files/${file.id}`,
+  };
+}
+
+async function findBulkItem(env, applicationId, fileId) {
+  return env.DB.prepare(
+    `SELECT f.*, a.user_id, a.status AS application_status
+     FROM creator_bulk_files f
+     JOIN author_applications a ON a.id = f.application_id
+     WHERE f.application_id = ? AND f.id = ? LIMIT 1`
+  ).bind(applicationId, fileId).first();
+}
+
+async function uploadBulkItem(request, env, account, applicationId) {
+  if (!trustedOrigin(request, env)) return error("Invalid origin.", 403);
+  const application = await findBulkApplication(env, applicationId);
+  if (!application || application.user_id !== account.profile.user_id) return error("Application not found.", 404);
+  if (!["draft", "changes_requested"].includes(application.status)) {
+    return error("Files can only be changed while the application is editable.", 409);
+  }
+  if (application.bulk_delivery_method !== "files") {
+    return error("Choose Upload files directly before adding files.", 409);
+  }
+  const contentType = (request.headers.get("content-type") || "").split(";")[0].toLowerCase();
+  if (!bulkFile.allowed.has(contentType)) {
+    return error("Upload PDF, EPUB, JPG, PNG, XLS, XLSX, ODS, CSV, or TSV files.", 415);
+  }
+  const declaredSize = Number(request.headers.get("content-length") || 0);
+  if (declaredSize > bulkFile.maxBytes) return error("File is too large.", 413);
+  const originalName = cleanFilename(decodeFilename(request.headers.get("x-file-name") || ""));
+  if (!originalName) return error("The original filename is required.", 400);
+  const slots = (await env.DB.prepare(
+    "SELECT slot FROM creator_bulk_files WHERE application_id = ? ORDER BY slot"
+  ).bind(applicationId).all()).results || [];
+  const usedSlots = new Set(slots.map((row) => Number(row.slot)));
+  const slot = Array.from({ length: 10 }, (_, index) => index + 1).find((value) => !usedSlots.has(value));
+  if (!slot) return error("Upload no more than 10 files.", 409);
+  let inspected;
+  try { inspected = await inspectRequest(request); }
+  catch (response) { return response instanceof Response ? response : error("File could not be read.", 400); }
+  if (!signatureIsValid(inspected.prefix, contentType)) {
+    return error("File contents do not match the selected type.", 415);
+  }
+  const fileId = crypto.randomUUID();
+  const key = `applications/${applicationId}/bulk-files/${fileId}.${extension(contentType)}`;
+  let stored;
+  try {
+    stored = await env.PRIVATE_BOOK_FILES.put(key, inspected.stream, {
+      httpMetadata: { contentType, contentDisposition: `attachment; filename="${originalName.replace(/"/g, "")}"` },
+      customMetadata: { applicationId, ownerUserId: application.user_id, kind: "bulk", fileId },
+    });
+    if (!stored || stored.size > bulkFile.maxBytes) {
+      await env.PRIVATE_BOOK_FILES.delete(key);
+      return error("File is too large.", 413);
+    }
+    await env.DB.prepare(
+      `INSERT INTO creator_bulk_files
+       (id, application_id, slot, object_key, original_name, content_type, size)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).bind(fileId, applicationId, slot, key, originalName, contentType, stored.size).run();
+  } catch (cause) {
+    console.error("Bulk file upload failed", cause);
+    if (stored) await env.PRIVATE_BOOK_FILES.delete(key).catch(() => {});
+    return error("File upload failed. If 10 files are already present, remove one before retrying.", 409);
+  }
+  const file = await findBulkItem(env, applicationId, fileId);
+  return Response.json({ file: bulkItemMetadata(applicationId, file) }, { status: 201 });
+}
+
+async function serveBulkItem(request, env, account, applicationId, fileId) {
+  const file = await findBulkItem(env, applicationId, fileId);
+  const isAdmin = account.accountRole === "owner" || account.profile.role === "admin";
+  if (!file || (!isAdmin && file.user_id !== account.profile.user_id)) return error("File not found.", 404);
+  const object = await env.PRIVATE_BOOK_FILES.get(file.object_key);
+  if (!object) return error("File not found.", 404);
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("Cache-Control", "private, no-store");
+  headers.set("X-Content-Type-Options", "nosniff");
+  return new Response(object.body, { headers });
+}
+
+async function removeBulkItem(request, env, account, applicationId, fileId) {
+  if (!trustedOrigin(request, env)) return error("Invalid origin.", 403);
+  const file = await findBulkItem(env, applicationId, fileId);
+  if (!file || file.user_id !== account.profile.user_id) return error("File not found.", 404);
+  if (!["draft", "changes_requested"].includes(file.application_status)) {
+    return error("Files cannot currently be removed.", 409);
+  }
+  try { await env.PRIVATE_BOOK_FILES.delete(file.object_key); }
+  catch { return error("The file could not be removed. Try again.", 503); }
+  await env.DB.prepare(
+    "DELETE FROM creator_bulk_files WHERE id = ? AND application_id = ?"
+  ).bind(fileId, applicationId).run();
   return new Response(null, { status: 204 });
 }
 
@@ -378,11 +489,17 @@ export async function handleBookFileRequest(request, env, executionContext) {
   const authorization = await requireRoles(request, env, ["reader", "author", "admin"], executionContext);
   if (authorization.response) return authorization.response;
   const match = new URL(request.url).pathname.match(
-    /^\/api\/creator-applications\/([0-9a-f-]+)\/files\/(manuscript|cover|bulk)$/i
+    /^\/api\/creator-applications\/([0-9a-f-]+)\/files\/(manuscript|cover|bulk|bulk-files)(?:\/([0-9a-f-]+))?$/i
   );
   if (!match) return error("Not found.", 404);
-  const [, applicationId, rawKind] = match;
+  const [, applicationId, rawKind, fileId] = match;
   const kind = rawKind.toLowerCase();
+  if (kind === "bulk-files") {
+    if (request.method === "PUT" && !fileId) return uploadBulkItem(request, env, authorization.account, applicationId);
+    if (request.method === "GET" && fileId) return serveBulkItem(request, env, authorization.account, applicationId, fileId);
+    if (request.method === "DELETE" && fileId) return removeBulkItem(request, env, authorization.account, applicationId, fileId);
+    return error("Method not allowed.", 405);
+  }
   if (kind === "bulk") {
     if (request.method === "PUT") return uploadBulk(request, env, authorization.account, applicationId);
     if (request.method === "GET") return serveBulk(request, env, authorization.account, applicationId);

@@ -194,12 +194,22 @@ creatorAutoGrowTextareas.forEach((field) => field.addEventListener("input", () =
 function refreshCreatorUploadSelections() {
   creatorTitleForm?.querySelectorAll('input[type="file"]').forEach((input) => {
     const selection = creatorTitleForm.querySelector(`[data-upload-selection="${input.name}"]`);
-    if (selection) selection.textContent = input.files?.[0]?.name || "No file selected";
+    if (!selection) return;
+    const files = Array.from(input.files || []);
+    selection.textContent = input.multiple
+      ? (files.length ? `${files.length} file${files.length === 1 ? "" : "s"} selected` : "No files selected")
+      : (files[0]?.name || "No file selected");
   });
 }
 
 creatorTitleForm?.querySelectorAll('input[type="file"]').forEach((input) => {
-  input.addEventListener("change", refreshCreatorUploadSelections);
+  input.addEventListener("change", () => {
+    if (input.name === "bulkFiles" && input.files.length > 10) {
+      input.value = "";
+      if (creatorFormMessage) creatorFormMessage.textContent = "Choose no more than 10 files.";
+    }
+    refreshCreatorUploadSelections();
+  });
 });
 let activeCreatorBook = null;
 let readerCollections = [];
@@ -2008,6 +2018,17 @@ function updateCreatorConditionalUI() {
   if (creatorBulkDetails) creatorBulkDetails.hidden = !pathIsReady || !bulk;
   creatorIndividualDetails?.querySelectorAll("input, select, textarea").forEach((field) => { field.disabled = !pathIsReady || bulk; });
   creatorBulkDetails?.querySelectorAll("input, select, textarea").forEach((field) => { field.disabled = !pathIsReady || !bulk; });
+  const bulkDeliveryMethod = String(formData.get("bulkDeliveryMethod") || "");
+  const bulkLinkOption = document.querySelector("[data-bulk-link-option]");
+  const bulkUploadOption = document.querySelector("[data-bulk-upload-option]");
+  if (bulkLinkOption) bulkLinkOption.hidden = bulkDeliveryMethod !== "link";
+  if (bulkUploadOption) bulkUploadOption.hidden = bulkDeliveryMethod !== "files";
+  bulkLinkOption?.querySelectorAll("input, select, textarea").forEach((field) => {
+    field.disabled = !pathIsReady || !bulk || bulkDeliveryMethod !== "link";
+  });
+  bulkUploadOption?.querySelectorAll("input, select, textarea").forEach((field) => {
+    field.disabled = !pathIsReady || !bulk || bulkDeliveryMethod !== "files";
+  });
   document.querySelectorAll("[data-individual-files] input, [data-individual-files] select, [data-individual-files] textarea")
     .forEach((field) => { field.disabled = bulk; });
   const bulkContact = document.querySelector("[data-bulk-contact]");
@@ -2283,6 +2304,8 @@ function populateCreatorForm() {
     setCreatorField("biography", application.biography);
     setCreatorField("noOnlinePresence", application.noOnlinePresence);
     setCreatorField("submissionMode", application.submissionMode || "individual");
+    setCreatorField("bulkDeliveryMethod", application.bulkDeliveryMethod ||
+      (application.bulkLink ? "link" : application.bulkFiles?.length ? "files" : ""));
     setCreatorField("bulkLink", application.bulkLink);
     setCreatorField("policyConfirmation", application.policyConfirmation);
     const savedSocialLinks = [...(application.socialLinks || [])];
@@ -2327,7 +2350,7 @@ function populateCreatorForm() {
 
   renderExistingCreatorFile("manuscript", book.manuscript);
   renderExistingCreatorFile("cover", book.cover);
-  renderExistingCreatorFile("bulk", application?.bulkFile);
+  renderExistingCreatorBulkFiles(application?.bulkFiles || []);
   updateCreatorConditionalUI();
   requestAnimationFrame(() => creatorAutoGrowTextareas.forEach(resizeCreatorTextarea));
   creatorAutosavePaused = false;
@@ -2376,12 +2399,59 @@ function renderExistingCreatorFile(kind, file) {
   container.append(link, document.createTextNode(" "), remove);
 }
 
+function renderExistingCreatorBulkFiles(files = []) {
+  const container = document.querySelector("[data-creator-existing-bulk-files]");
+  if (!container) return;
+  container.replaceChildren();
+  if (!files.length) {
+    container.textContent = "No files uploaded yet.";
+    return;
+  }
+  files.forEach((file) => {
+    const row = document.createElement("span");
+    const link = document.createElement("a");
+    link.href = file.url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = `${file.name} (${formatFileSize(file.size)})`;
+    link.addEventListener("click", (event) => event.stopPropagation());
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "Remove";
+    remove.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const response = await fetch(file.url, { method: "DELETE" });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        creatorFormMessage.textContent = result.error || "File could not be removed.";
+        return;
+      }
+      if (creatorApplicationData?.application) {
+        creatorApplicationData.application.bulkFiles = creatorApplicationData.application.bulkFiles
+          .filter((item) => item.id !== file.id);
+        renderExistingCreatorBulkFiles(creatorApplicationData.application.bulkFiles);
+      }
+      creatorFormMessage.textContent = "File removed.";
+    });
+    row.append(link, remove);
+    container.append(row);
+  });
+}
+
 function uploadContentType(file, kind) {
   if (kind === "manuscript" && file.name.toLowerCase().endsWith(".epub")) {
     return "application/epub+zip";
   }
   if (kind === "manuscript") return "application/pdf";
-  return file.type === "image/png" ? "image/png" : "image/jpeg";
+  if (kind === "cover") return file.type === "image/png" ? "image/png" : "image/jpeg";
+  const extensionType = {
+    pdf: "application/pdf", epub: "application/epub+zip", jpg: "image/jpeg", jpeg: "image/jpeg",
+    png: "image/png", xls: "application/vnd.ms-excel",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ods: "application/vnd.oasis.opendocument.spreadsheet", csv: "text/csv", tsv: "text/tab-separated-values",
+  }[file.name.toLowerCase().split(".").at(-1)];
+  return extensionType || file.type || "application/octet-stream";
 }
 
 function uploadWithProgress(url, file, kind, validation) {
@@ -2397,7 +2467,7 @@ function uploadWithProgress(url, file, kind, validation) {
     request.upload.addEventListener("progress", (event) => {
       if (!event.lengthComputable || !creatorFormMessage) return;
       const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
-      creatorFormMessage.textContent = `${kind === "cover" ? "Cover" : "Book file"} upload: ${percent}%`;
+      creatorFormMessage.textContent = `${kind === "cover" ? "Cover" : kind === "bulk" ? file.name : "Book file"} upload: ${percent}%`;
     });
     const finish = () => {
       activeCreatorUpload = null;
@@ -2407,7 +2477,7 @@ function uploadWithProgress(url, file, kind, validation) {
       finish();
       const result = request.response || {};
       if (request.status >= 200 && request.status < 300) resolve(result);
-      else reject(new Error(result.error || `${kind === "cover" ? "Cover" : "Book file"} upload failed.`));
+      else reject(new Error(result.error || `${kind === "cover" ? "Cover" : kind === "bulk" ? file.name : "Book file"} upload failed.`));
     });
     request.addEventListener("error", () => {
       finish();
@@ -2515,16 +2585,20 @@ async function uploadCreatorFiles(recordId) {
   renderExistingCreatorFile("cover", refreshedBook?.cover);
 }
 
-async function uploadCreatorBulkFile(applicationId) {
-  const file = creatorTitleForm.elements.bulkFile?.files?.[0];
-  if (!file) return;
-  if (file.size > 95 * 1024 * 1024) throw new Error("Catalog file is too large.");
-  await uploadWithProgress(`/api/creator-applications/${applicationId}/files/bulk`, file, "bulk", "catalog-file");
+async function uploadCreatorBulkFiles(applicationId) {
+  const files = Array.from(creatorTitleForm.elements.bulkFiles?.files || []);
+  if (!files.length) return;
+  const existingCount = creatorApplicationData?.application?.bulkFiles?.length || 0;
+  if (files.length + existingCount > 10) throw new Error("Upload no more than 10 files in total.");
+  for (const file of files) {
+    if (file.size > 95 * 1024 * 1024) throw new Error(`${file.name} is larger than 95 MB.`);
+    await uploadWithProgress(`/api/creator-applications/${applicationId}/files/bulk-files`, file, "bulk", "bulk-file");
+  }
   const refreshed = await fetch("/api/creator-applications/me");
   if (refreshed.ok) creatorApplicationData = await refreshed.json();
-  creatorTitleForm.elements.bulkFile.value = "";
+  creatorTitleForm.elements.bulkFiles.value = "";
   refreshCreatorUploadSelections();
-  renderExistingCreatorFile("bulk", creatorApplicationData?.application?.bulkFile);
+  renderExistingCreatorBulkFiles(creatorApplicationData?.application?.bulkFiles || []);
 }
 
 function creatorStepIsValid() {
@@ -2545,10 +2619,16 @@ function creatorStepIsValid() {
   }
   if (creatorFormStep === 4 && creatorSubmissionMode() === "bulk" && !hasApprovedCreatorAccess()) {
     const application = creatorApplicationData?.application;
+    const method = String(new FormData(creatorTitleForm).get("bulkDeliveryMethod") || "");
     const link = String(creatorTitleForm.elements.bulkLink?.value || "").trim();
-    const file = creatorTitleForm.elements.bulkFile?.files?.[0];
-    if (!link && !file && !application?.bulkFile) {
-      creatorFormMessage.textContent = "Add a catalog link or upload a catalog file.";
+    const selectedFiles = creatorTitleForm.elements.bulkFiles?.files?.length || 0;
+    const existingFiles = application?.bulkFiles?.length || 0;
+    if (method === "link" && !link) {
+      creatorFormMessage.textContent = "Add a shared link.";
+      return false;
+    }
+    if (method === "files" && !selectedFiles && !existingFiles) {
+      creatorFormMessage.textContent = "Upload at least one file.";
       return false;
     }
   }
@@ -2582,6 +2662,7 @@ function getCreatorFormData() {
       socialLinks,
       noOnlinePresence: creatorType === "author" && Boolean(formData.get("noOnlinePresence")),
       submissionMode: String(formData.get("submissionMode") || "individual"),
+      bulkDeliveryMethod: String(formData.get("bulkDeliveryMethod") || ""),
       policyConfirmation: Boolean(formData.get("policyConfirmation")),
       bulkLink: String(formData.get("bulkLink") || "").trim(),
       rightsConfirmation: Boolean(formData.get("rights")),
@@ -2713,7 +2794,9 @@ async function saveCreatorDraft(includeFiles = false) {
     if (!response.ok) throw new Error(result.error || "Draft could not be saved.");
     creatorApplicationData = result;
     if (includeFiles) {
-      if (creatorSubmissionMode() === "bulk") await uploadCreatorBulkFile(creatorApplicationData.application.id);
+      if (creatorSubmissionMode() === "bulk" && getCreatorFormData().application.bulkDeliveryMethod === "files") {
+        await uploadCreatorBulkFiles(creatorApplicationData.application.id);
+      }
       else await uploadCreatorFiles(creatorApplicationData.application.id);
     }
     showCreatorSavedMessage();
@@ -2814,7 +2897,9 @@ async function submitCreatorForm() {
 
     creatorApplicationData = saveResult;
     await updateCreatorDuplicateNote(getCreatorFormData().book, creatorApplicationData.book?.id || "");
-    if (creatorSubmissionMode() === "bulk") await uploadCreatorBulkFile(applicationId);
+    if (creatorSubmissionMode() === "bulk" && getCreatorFormData().application.bulkDeliveryMethod === "files") {
+      await uploadCreatorBulkFiles(applicationId);
+    }
     else await uploadCreatorFiles(applicationId);
 
     const submitResponse = await fetch(

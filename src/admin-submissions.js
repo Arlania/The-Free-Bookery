@@ -90,7 +90,7 @@ async function readDecision(request) {
 const authorSelect = `SELECT
   a.id, a.user_id, a.creator_type, a.status, a.legal_name, a.pen_name,
   a.biography, a.website, a.verification_details, a.social_links,
-  a.no_online_presence, a.submission_mode, a.policy_confirmation, a.bulk_link,
+  a.no_online_presence, a.submission_mode, a.bulk_delivery_method, a.policy_confirmation, a.bulk_link,
   a.bulk_object_key, a.bulk_original_name, a.bulk_content_type, a.bulk_size,
   a.bulk_uploaded_at, a.rights_confirmation,
   a.submitted_at, a.reviewed_at, a.admin_message,
@@ -108,7 +108,19 @@ JOIN profiles p ON p.user_id = b.owner_user_id
 JOIN "user" u ON u.id = b.owner_user_id
 LEFT JOIN author_applications a ON a.id = b.application_id`;
 
-function serializeAuthor(row) {
+async function serializeAuthor(env, row) {
+  const bulkResult = await env.DB.prepare(
+    `SELECT id, original_name, content_type, size, uploaded_at
+     FROM creator_bulk_files WHERE application_id = ? ORDER BY slot ASC`
+  ).bind(row.id).all();
+  const bulkFiles = (bulkResult.results || []).map((file) => ({
+    id: file.id,
+    name: file.original_name,
+    contentType: file.content_type,
+    size: file.size,
+    uploadedAt: file.uploaded_at,
+    url: `/api/creator-applications/${row.id}/files/bulk-files/${file.id}`,
+  }));
   return {
     id: row.id,
     kind: "author",
@@ -128,15 +140,10 @@ function serializeAuthor(row) {
       socialLinks: JSON.parse(row.social_links || "[]"),
       noOnlinePresence: row.no_online_presence === 1,
       submissionMode: row.submission_mode || "individual",
+      bulkDeliveryMethod: row.bulk_delivery_method || "",
       policyConfirmation: row.policy_confirmation === 1,
       bulkLink: row.bulk_link || "",
-      bulkFile: row.bulk_object_key ? {
-        name: row.bulk_original_name,
-        contentType: row.bulk_content_type,
-        size: row.bulk_size,
-        uploadedAt: row.bulk_uploaded_at,
-        url: `/api/creator-applications/${row.id}/files/bulk`,
-      } : null,
+      bulkFiles,
       rightsConfirmation: row.rights_confirmation === 1,
     },
     firstBook: row.submission_mode !== "bulk" && row.first_book_id ? {
@@ -228,7 +235,7 @@ async function listPending(env) {
     env.DB.prepare(`${bookSelect} WHERE b.status = 'pending' ORDER BY b.submitted_at ASC`).all(),
   ]);
   return {
-    authorApplications: (authors.results || []).map(serializeAuthor),
+    authorApplications: await Promise.all((authors.results || []).map((row) => serializeAuthor(env, row))),
     bookSubmissions: await Promise.all(
       (books.results || []).map(async (row) => serializeBook(await addDuplicateMatches(env, row)))
     ),
@@ -370,6 +377,6 @@ export async function handleAdminSubmissionRequest(request, env, executionContex
       : buildBookReviewEmail(result.row, review.decision, baseUrl)
   );
   return Response.json({
-    submission: isAuthor ? serializeAuthor(result.row) : serializeBook(result.row),
+    submission: isAuthor ? await serializeAuthor(env, result.row) : serializeBook(result.row),
   });
 }

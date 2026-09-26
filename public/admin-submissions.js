@@ -187,6 +187,17 @@ function renderDetail(submission) {
     intro.className = "admin-review-detail-heading";
     intro.innerHTML = `<span>AUTHOR APPLICATION</span><h2></h2>`;
     intro.querySelector("h2").textContent = submission.applicant.legalName || submission.applicant.accountName;
+    const bulkFiles = submission.applicant.bulkDeliveryMethod === "files"
+      ? (submission.applicant.bulkFiles || []) : [];
+    const bulkFilesSection = bulkFiles.length ? document.createElement("section") : null;
+    if (bulkFilesSection) {
+      bulkFilesSection.className = "admin-review-section";
+      bulkFilesSection.innerHTML = "<h2>Bulk-upload files</h2>";
+      const fileGrid = document.createElement("div");
+      fileGrid.className = "admin-review-files";
+      bulkFiles.forEach((file, index) => fileGrid.append(fileCard(`File ${index + 1}`, file)));
+      bulkFilesSection.append(fileGrid);
+    }
     detail.append(
       intro,
       detailSection("Applicant", [
@@ -196,13 +207,14 @@ function renderDetail(submission) {
         ...(submission.applicant.creatorType === "publisher" ? [] : [["Website", submission.applicant.website]]),
         ["Rights confirmed", submission.applicant.rightsConfirmation],
         ["Submission path", submission.applicant.submissionMode],
+        ["Bulk delivery", submission.applicant.bulkDeliveryMethod],
         ["No online presence", submission.applicant.noOnlinePresence],
         ["Online profiles", (submission.applicant.socialLinks || []).map((item) => `${item.platform === "other" ? (item.platformName || "Other") : item.platform}: ${item.url}`).join("\n"), true],
         ["Bulk catalog link", submission.applicant.bulkLink],
-        ["Bulk catalog file", submission.applicant.bulkFile?.url || ""],
         ["Policies confirmed", submission.applicant.policyConfirmation],
         ["Biography", submission.applicant.biography, true],
       ]),
+      ...(bulkFilesSection ? [bulkFilesSection] : []),
       reviewActions(submission)
     );
     return;

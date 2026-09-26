@@ -21,6 +21,7 @@ const textLimits = {
   socialPlatformName: 80,
   socialLinks: 6000,
   submissionMode: 20,
+  bulkDeliveryMethod: 20,
   bulkLink: 1000,
   title: 300,
   subtitle: 300,
@@ -130,6 +131,7 @@ function normalizePayload(body) {
   const rightsBasis = normalizeRightsBasis(book.rightsBasis || application.rightsBasis);
   const socialLinks = normalizeSocialLinks(application.socialLinks);
   const bulkLink = cleanText(application.bulkLink, "bulkLink");
+  const bulkDeliveryMethod = cleanText(application.bulkDeliveryMethod, "bulkDeliveryMethod");
   const bookType = cleanText(book.bookType, "bookType");
   if (bookType && !["fiction", "nonfiction"].includes(bookType)) {
     throw jsonError("Choose fiction or nonfiction.", 400);
@@ -139,6 +141,9 @@ function normalizePayload(body) {
   }
   if (!rightsBasis && (application.rightsConfirmation === true || book.rightsConfirmation === true)) {
     throw jsonError("Choose the publishing-rights basis.", 400);
+  }
+  if (bulkDeliveryMethod && !["link", "files"].includes(bulkDeliveryMethod)) {
+    throw jsonError("Choose a valid bulk-delivery method.", 400);
   }
 
   return {
@@ -155,8 +160,9 @@ function normalizePayload(body) {
       socialLinks,
       noOnlinePresence: application.noOnlinePresence === true,
       submissionMode,
+      bulkDeliveryMethod: submissionMode === "bulk" ? bulkDeliveryMethod : "",
       policyConfirmation: application.policyConfirmation === true,
-      bulkLink,
+      bulkLink: submissionMode === "bulk" && bulkDeliveryMethod === "link" ? bulkLink : "",
       rightsBasis,
     },
     book: {
@@ -189,7 +195,7 @@ async function findApplication(env, userId, applicationId) {
        a.id, a.user_id, a.creator_type, a.status, a.legal_name, a.pen_name,
        a.biography, a.website, a.verification_details, a.social_links,
        a.no_online_presence, a.submission_mode, a.policy_confirmation,
-       a.bulk_link, a.bulk_object_key, a.bulk_original_name,
+       a.bulk_link, a.bulk_delivery_method, a.bulk_object_key, a.bulk_original_name,
        a.bulk_content_type, a.bulk_size, a.bulk_uploaded_at,
        a.rights_confirmation, a.submitted_at, a.reviewed_at,
        a.admin_message, a.created_at, a.updated_at,
@@ -216,8 +222,25 @@ async function findApplication(env, userId, applicationId) {
     : statement.bind(userId).first();
 }
 
-function serialize(row) {
+async function listBulkFiles(env, applicationId) {
+  if (!applicationId) return [];
+  const result = await env.DB.prepare(
+    `SELECT id, original_name, content_type, size, uploaded_at
+     FROM creator_bulk_files WHERE application_id = ? ORDER BY slot ASC`
+  ).bind(applicationId).all();
+  return (result.results || []).map((file) => ({
+    id: file.id,
+    name: file.original_name,
+    contentType: file.content_type,
+    size: file.size,
+    uploadedAt: file.uploaded_at,
+    url: `/api/creator-applications/${applicationId}/files/bulk-files/${file.id}`,
+  }));
+}
+
+async function serialize(env, row) {
   if (!row) return { application: null, book: null };
+  const bulkFiles = await listBulkFiles(env, row.id);
   return {
     application: {
       id: row.id,
@@ -231,15 +254,10 @@ function serialize(row) {
       socialLinks: JSON.parse(row.social_links || "[]"),
       noOnlinePresence: row.no_online_presence === 1,
       submissionMode: row.submission_mode || "individual",
+      bulkDeliveryMethod: row.bulk_delivery_method || "",
       policyConfirmation: row.policy_confirmation === 1,
       bulkLink: row.bulk_link || "",
-      bulkFile: row.bulk_object_key ? {
-        name: row.bulk_original_name,
-        contentType: row.bulk_content_type,
-        size: row.bulk_size,
-        uploadedAt: row.bulk_uploaded_at,
-        url: `/api/creator-applications/${row.id}/files/bulk`,
-      } : null,
+      bulkFiles,
       rightsConfirmation: row.rights_confirmation === 1,
       rightsBasis: row.rights_basis || "",
       submittedAt: row.submitted_at,
@@ -341,7 +359,7 @@ async function updateDraft(env, userId, applicationId, payload) {
          creator_type = ?, legal_name = ?, pen_name = ?, biography = ?,
          website = ?, verification_details = ?, rights_confirmation = ?,
          social_links = ?, no_online_presence = ?, submission_mode = ?,
-         policy_confirmation = ?, bulk_link = ?,
+         bulk_delivery_method = ?, policy_confirmation = ?, bulk_link = ?,
          updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND user_id = ?`
     ).bind(
@@ -355,6 +373,7 @@ async function updateDraft(env, userId, applicationId, payload) {
       JSON.stringify(application.socialLinks),
       application.noOnlinePresence ? 1 : 0,
       application.submissionMode,
+      application.bulkDeliveryMethod || null,
       application.policyConfirmation ? 1 : 0,
       application.bulkLink,
       applicationId,
@@ -417,8 +436,11 @@ function validateSubmission(row) {
   if (row.rights_confirmation !== 1 || !row.rights_basis) missing.push("rights confirmation");
   if (row.policy_confirmation !== 1) missing.push("policy confirmation");
   if (row.submission_mode === "bulk") {
-    if (!websiteIsValid(row.bulk_link || "")) missing.push("a valid bulk catalog link");
-    if (!row.bulk_link && !row.bulk_object_key) missing.push("bulk catalog link or file");
+    if (!["link", "files"].includes(row.bulk_delivery_method || "")) {
+      missing.push("a bulk-delivery method");
+    } else if (row.bulk_delivery_method === "link") {
+      if (!row.bulk_link || !websiteIsValid(row.bulk_link)) missing.push("a valid shared link");
+    }
     return missing;
   }
   if (!row.title) missing.push("book title");
@@ -442,6 +464,12 @@ async function submitApplication(env, userId, applicationId) {
   }
 
   const missing = validateSubmission(current);
+  if (current.submission_mode === "bulk" && current.bulk_delivery_method === "files") {
+    const bulkFileCount = Number((await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM creator_bulk_files WHERE application_id = ?"
+    ).bind(applicationId).first())?.count || 0);
+    if (!bulkFileCount) missing.push("at least one uploaded file");
+  }
   if (missing.length) {
     return {
       error: jsonError(`Complete these fields: ${missing.join(", ")}.`, 400),
@@ -503,12 +531,12 @@ export async function handleCreatorApplicationRequest(
   }
 
   if (url.pathname === "/api/creator-applications/me" && request.method === "GET") {
-    return Response.json(serialize(await findApplication(env, userId)));
+    return Response.json(await serialize(env, await findApplication(env, userId)));
   }
 
   if (url.pathname === "/api/creator-applications" && request.method === "POST") {
     const result = await createApplication(env, userId);
-    return Response.json(serialize(result.row), {
+    return Response.json(await serialize(env, result.row), {
       status: result.created ? 201 : 200,
     });
   }
@@ -521,7 +549,7 @@ export async function handleCreatorApplicationRequest(
   const applicationId = match[1];
   if (match[2] === "/submit" && request.method === "POST") {
     const result = await submitApplication(env, userId, applicationId);
-    return result.error || Response.json(serialize(result.row));
+    return result.error || Response.json(await serialize(env, result.row));
   }
 
   if (!match[2] && request.method === "PATCH") {
@@ -535,7 +563,7 @@ export async function handleCreatorApplicationRequest(
         : jsonError("Invalid request.", 400);
     }
     const result = await updateDraft(env, userId, applicationId, body);
-    return result.error || Response.json(serialize(result.row));
+    return result.error || Response.json(await serialize(env, result.row));
   }
 
   return jsonError("Method not allowed.", 405);
