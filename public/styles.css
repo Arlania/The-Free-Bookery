@@ -5528,16 +5528,20 @@ img, svg, video, canvas { max-width: 100%; }
   inset: 0;
   z-index: 100;
   display: block;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 0;
   background: #fffaf0;
 }
 
 .creator-title-dialog {
-  width: min(100%, 1040px);
-  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   margin: 0 auto;
-  padding: clamp(24px, 5vw, 64px);
+  padding: clamp(20px, 3vh, 34px) clamp(24px, 4vw, 72px) 0;
   background: transparent;
 }
 
@@ -5573,7 +5577,8 @@ img, svg, video, canvas { max-width: 100%; }
 
 .creator-form-progress {
   display: flex;
-  margin: 26px 0 0;
+  width: 100%;
+  margin: clamp(18px, 2.5vh, 28px) 0 0;
   padding: 0;
   list-style: none;
 }
@@ -5611,9 +5616,17 @@ img, svg, video, canvas { max-width: 100%; }
   font-size: 0.72rem;
 }
 
+.creator-title-form {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
 .creator-form-step {
-  min-height: min(590px, calc(100vh - 270px));
-  padding: clamp(54px, 9vh, 110px) 0 40px;
+  width: min(100%, 1280px);
+  min-height: calc(100% - 1px);
+  margin: 0 auto;
+  padding: clamp(30px, 5.5vh, 62px) clamp(10px, 2vw, 28px) 118px;
 }
 
 .creator-form-step[hidden] {
@@ -5635,7 +5648,7 @@ img, svg, video, canvas { max-width: 100%; }
 }
 
 .creator-question-number { display: block; margin-bottom: 16px; color: #a25c27; font-size: .82rem; font-weight: 900; letter-spacing: .08em; }
-.creator-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 820px; margin-top: 38px; }
+.creator-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; max-width: 1080px; margin-top: 32px; }
 .creator-choice-card { position: relative; cursor: pointer; }
 .creator-choice-card > input { position: absolute; opacity: 0; pointer-events: none; }
 .creator-choice-card > span { display: grid; min-height: 150px; grid-template-columns: auto 1fr; align-content: center; gap: 5px 14px; border: 2px solid rgba(16,11,43,.15); border-radius: 14px; padding: 24px; background: rgba(255,255,255,.55); transition: border-color .15s, transform .15s, background .15s; }
@@ -6073,14 +6086,16 @@ img, svg, video, canvas { max-width: 100%; }
 .creator-form-message:empty { visibility: hidden; }
 
 .creator-form-actions {
-  position: sticky;
+  position: fixed;
+  right: 0;
   bottom: 0;
-  z-index: 2;
+  left: 0;
+  z-index: 4;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
   margin-top: 0;
-  padding-top: 20px;
+  padding: 14px clamp(24px, 4vw, 72px) max(14px, env(safe-area-inset-bottom));
   border-top: 1px solid rgba(16, 11, 43, 0.13);
   background: rgba(255,250,240,.94);
   backdrop-filter: blur(12px);
@@ -6107,6 +6122,10 @@ img, svg, video, canvas { max-width: 100%; }
 .creator-form-actions .creator-nav-arrow { width: 46px; min-height: 46px; padding: 0; font-size: 1.35rem; line-height: 1; }
 
 @media (max-width: 760px) {
+  .creator-title-dialog {
+    padding: 18px 18px 0;
+  }
+
   .creator-dashboard-header,
   .creator-library-heading {
     align-items: stretch;
@@ -6136,7 +6155,7 @@ img, svg, video, canvas { max-width: 100%; }
   .creator-choice-grid,
   .creator-social-row { grid-template-columns: 1fr; }
 
-  .creator-form-step { min-height: auto; padding-top: 48px; }
+  .creator-form-step { min-height: calc(100% - 1px); padding: 30px 0 104px; }
 
   .creator-form-progress li span {
     font-size: 0.72rem;
@@ -6160,6 +6179,8 @@ img, svg, video, canvas { max-width: 100%; }
   .creator-form-actions {
     align-items: center;
     flex-direction: row;
+    padding-right: 18px;
+    padding-left: 18px;
   }
 
   .creator-form-actions .creator-nav-arrow { align-self: auto; }
