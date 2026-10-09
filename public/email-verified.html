@@ -9,12 +9,14 @@
   </head>
   <body>
     <main class="auth-page">
-      <section class="auth-card" aria-labelledby="verified-title">
+      <section class="auth-card verification-card" aria-labelledby="verified-title" data-verification-result>
         <a class="brand" href="index.html"><img src="assets/book-logo.png" alt="" class="brand-logo" /><span>Free Bookery</span></a>
+        <div class="verification-icon" aria-hidden="true">✓</div>
         <h1 id="verified-title">Email verified</h1>
-        <p>Your email address is verified. You can continue to Free Bookery.</p>
-        <a class="creator-primary-action" href="index.html">Continue</a>
+        <p data-verification-message>Confirming your new account…</p>
+        <a class="creator-primary-action" href="index.html" data-verification-action>Continue to Free Bookery</a>
       </section>
     </main>
+    <script src="email-verification.js"></script>
   </body>
 </html>

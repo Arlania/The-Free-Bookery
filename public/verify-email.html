@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify Your Email | Free Bookery</title>
+    <link rel="icon" type="image/png" href="assets/book-logo.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="auth-page">
+      <section class="auth-card verification-card" aria-labelledby="verify-email-title" data-verification-pending>
+        <a class="brand" href="index.html"><img src="assets/book-logo.png" alt="" class="brand-logo" /><span>Free Bookery</span></a>
+        <div class="verification-icon verification-icon-email" aria-hidden="true">✉</div>
+        <p class="verification-eyebrow">One more step</p>
+        <h1 id="verify-email-title">Check your email</h1>
+        <p>
+          We sent a verification link<span data-pending-email></span>. Click it to
+          verify your address and you’ll be signed in automatically.
+        </p>
+        <div class="verification-steps" aria-label="Account verification steps">
+          <span><b>1</b> Open the email from Free Bookery</span>
+          <span><b>2</b> Click <strong>Verify email</strong></span>
+          <span><b>3</b> Return signed in as a reader</span>
+        </div>
+        <p class="verification-help">Can’t find it? Check your spam folder or resend the email.</p>
+        <button class="creator-primary-action verification-resend" type="button" data-resend-verification>Resend verification email</button>
+        <p class="signin-message" role="status" aria-live="polite" data-verification-status></p>
+        <a class="verification-secondary-action" href="index.html#signin">Back to login</a>
+      </section>
+    </main>
+    <script src="email-verification.js"></script>
+  </body>
+</html>

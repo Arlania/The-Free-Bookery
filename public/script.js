@@ -1347,7 +1347,9 @@ signupForm?.addEventListener("submit", async (event) => {
         name,
         email,
         password,
-        callbackURL: `${window.location.origin}/email-verified`,
+        callbackURL: `${window.location.origin}/email-verified.html${
+          getRequestedBookId() ? `?book=${encodeURIComponent(getRequestedBookId())}` : ""
+        }`,
       }),
     });
 
@@ -1356,7 +1358,11 @@ signupForm?.addEventListener("submit", async (event) => {
       throw new Error(result.message || "Your account could not be created.");
     }
 
-    await initializeServerSession();
+    try {
+      sessionStorage.setItem("freeBookeryPendingVerificationEmail", email);
+    } catch {
+      // The confirmation page still works when private browsing blocks storage.
+    }
   } catch (error) {
     let message = signupForm.querySelector(".signup-message");
     if (!message) {
@@ -1370,9 +1376,9 @@ signupForm?.addEventListener("submit", async (event) => {
   }
 
   const requestedBookId = getRequestedBookId();
-  window.location.href = requestedBookId
-    ? getReaderUrl(requestedBookId)
-    : "index.html";
+  window.location.href = `verify-email.html${
+    requestedBookId ? `?book=${encodeURIComponent(requestedBookId)}` : ""
+  }`;
 });
 
 logoutButton?.addEventListener("click", async () => {
