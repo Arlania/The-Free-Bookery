@@ -240,7 +240,7 @@
           <li data-creator-step-indicator="6"><span>6</span>Files</li>
         </ol>
 
-        <form class="creator-title-form">
+        <form class="creator-title-form" novalidate>
           <section class="creator-form-step" data-creator-step="1">
             <div class="creator-form-intro">
               <span class="creator-question-number">01 →</span>
@@ -362,7 +362,7 @@
             </div>
           </section>
 
-          <p class="creator-form-message" data-creator-form-message role="status" aria-live="polite"></p>
+          <p class="creator-form-message" id="creator-form-message" data-creator-form-message role="status" aria-live="polite"></p>
           <button type="button" class="upload-cancel-button" data-creator-upload-cancel hidden>Cancel upload</button>
           <div class="creator-form-actions">
             <button type="button" class="creator-form-back creator-nav-arrow" data-creator-form-back aria-label="Back" title="Back" hidden>&larr;</button>

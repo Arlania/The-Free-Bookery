@@ -2528,6 +2528,10 @@ creatorUploadCancel?.addEventListener("click", () => activeCreatorUpload?.abort(
 
 creatorTitleForm?.querySelectorAll('[name="isbn"], [name="doi"]').forEach((field) => {
   field.addEventListener("change", () => {
+    if (field.name === "isbn") {
+      updateCreatorIsbnValidity();
+      if (!field.checkValidity()) return;
+    }
     const book = getCreatorFormData().book;
     const excludeId = activeCreatorBook?.id || creatorApplicationData?.book?.id || "";
     updateCreatorDuplicateNote(book, excludeId).catch((cause) => {
@@ -2553,6 +2557,74 @@ async function updateCreatorDuplicateNote(book, excludeId = "") {
     ? `Note: ${result.count} existing book${result.count === 1 ? "" : "s"} use the same ISBN or DOI. You may submit this title, and an Admin will confirm whether it is a new edition or replacement.`
     : "";
   return result;
+}
+
+function normalizeCreatorIsbn(value) {
+  return String(value || "")
+    .replace(/^isbn(?:-1[03])?:?/i, "")
+    .replace(/[^0-9X]/gi, "")
+    .toUpperCase();
+}
+
+function creatorIsbnIsValid(value) {
+  const isbn = normalizeCreatorIsbn(value);
+  if (!isbn) return true;
+  if (/^\d{9}[\dX]$/.test(isbn)) {
+    const total = [...isbn].reduce((sum, character, index) => {
+      const digit = character === "X" ? 10 : Number(character);
+      return sum + digit * (10 - index);
+    }, 0);
+    return total % 11 === 0;
+  }
+  if (/^\d{13}$/.test(isbn)) {
+    const total = [...isbn.slice(0, 12)].reduce(
+      (sum, character, index) => sum + Number(character) * (index % 2 ? 3 : 1),
+      0
+    );
+    return (10 - (total % 10)) % 10 === Number(isbn[12]);
+  }
+  return false;
+}
+
+function updateCreatorIsbnValidity() {
+  const field = creatorTitleForm?.elements.isbn;
+  if (!field) return;
+  field.setCustomValidity(
+    field.value.trim() && !creatorIsbnIsValid(field.value)
+      ? "Enter a valid ISBN-10 or ISBN-13."
+      : ""
+  );
+}
+
+function clearCreatorFieldError(field) {
+  if (!(field instanceof HTMLElement)) return;
+  field.removeAttribute("aria-invalid");
+  field.removeAttribute("aria-errormessage");
+  field.closest("label, fieldset, .creator-upload-card")?.classList.remove("creator-field-error");
+  field.closest("fieldset")?.classList.remove("creator-field-error");
+  if (field.name) {
+    creatorTitleForm?.querySelectorAll(`[name="${CSS.escape(field.name)}"]`).forEach((item) => {
+      item.removeAttribute("aria-invalid");
+      item.removeAttribute("aria-errormessage");
+      item.closest("label, fieldset, .creator-upload-card")?.classList.remove("creator-field-error");
+      item.closest("fieldset")?.classList.remove("creator-field-error");
+    });
+  }
+}
+
+function markCreatorFieldError(field) {
+  if (!field) return;
+  field.setAttribute("aria-invalid", "true");
+  field.setAttribute("aria-errormessage", "creator-form-message");
+  field.closest("label, fieldset, .creator-upload-card")?.classList.add("creator-field-error");
+  field.closest("fieldset")?.classList.add("creator-field-error");
+}
+
+function focusCreatorError(target) {
+  target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) {
+    target.focus({ preventScroll: true });
+  }
 }
 
 async function uploadCreatorFiles(recordId) {
@@ -2641,12 +2713,25 @@ function creatorStepIsValid() {
   );
   const fields = currentPanel?.querySelectorAll("input, select, textarea") || [];
 
+  currentPanel?.querySelectorAll(".creator-field-error").forEach((item) => item.classList.remove("creator-field-error"));
+  currentPanel?.querySelectorAll('[aria-invalid="true"]').forEach((item) => {
+    item.removeAttribute("aria-invalid");
+    item.removeAttribute("aria-errormessage");
+  });
+  creatorFormMessage.classList.remove("is-error");
+
+  updateCreatorIsbnValidity();
+
   if (creatorFormStep === 4 && creatorSubmissionMode() === "individual") updateCreatorGenreState();
 
   if (creatorFormStep === 3 && !hasApprovedCreatorAccess()) {
     const data = getCreatorFormData().application;
     if (!data.noOnlinePresence && !data.website && !data.socialLinks.length) {
       creatorFormMessage.textContent = "Add an online presence or choose the no-online-presence option.";
+      creatorFormMessage.classList.add("is-error");
+      const target = currentPanel.querySelector("[data-social-url]");
+      target?.closest(".creator-social-row")?.classList.add("creator-field-error");
+      focusCreatorError(target || currentPanel.querySelector('[name="noOnlinePresence"]'));
       return false;
     }
   }
@@ -2658,22 +2743,62 @@ function creatorStepIsValid() {
     const existingFiles = application?.bulkFiles?.length || 0;
     if (method === "link" && !link) {
       creatorFormMessage.textContent = "Add a shared link.";
+      creatorFormMessage.classList.add("is-error");
+      const target = creatorTitleForm.elements.bulkLink;
+      markCreatorFieldError(target);
+      focusCreatorError(target);
       return false;
     }
     if (method === "files" && !selectedFiles && !existingFiles) {
       creatorFormMessage.textContent = "Upload at least one file.";
+      creatorFormMessage.classList.add("is-error");
+      const target = creatorTitleForm.elements.bulkFiles;
+      markCreatorFieldError(target);
+      focusCreatorError(target.closest(".creator-upload-card"));
       return false;
     }
   }
 
-  for (const field of fields) {
-    if (!field.checkValidity()) {
-      field.reportValidity();
+  if (creatorFormStep === 6 && creatorSubmissionMode() === "individual") {
+    const selectedFile = creatorTitleForm.elements.manuscript?.files?.length || 0;
+    const existingBook = hasApprovedCreatorAccess() ? activeCreatorBook : creatorApplicationData?.book;
+    if (!selectedFile && !existingBook?.manuscript) {
+      creatorFormMessage.textContent = "Choose a PDF or EPUB book file before continuing.";
+      creatorFormMessage.classList.add("is-error");
+      const target = creatorTitleForm.elements.manuscript;
+      markCreatorFieldError(target);
+      focusCreatorError(target.closest(".creator-upload-card"));
       return false;
     }
   }
+
+  const invalidFields = Array.from(fields).filter((field) => !field.disabled && !field.checkValidity());
+  if (invalidFields.length) {
+    invalidFields.forEach(markCreatorFieldError);
+    creatorFormMessage.textContent = invalidFields.some((field) => field.name === "isbn" && field.value.trim())
+      ? "Enter a valid ISBN-10 or ISBN-13 before continuing."
+      : "Complete the highlighted required fields before continuing.";
+    creatorFormMessage.classList.add("is-error");
+    focusCreatorError(invalidFields[0]);
+    invalidFields[0].reportValidity();
+    return false;
+  }
+
+  creatorFormMessage.textContent = "";
   return true;
 }
+
+creatorTitleForm?.addEventListener("input", (event) => {
+  if (event.target?.name === "isbn") updateCreatorIsbnValidity();
+  clearCreatorFieldError(event.target);
+  creatorFormMessage?.classList.remove("is-error");
+});
+
+creatorTitleForm?.addEventListener("change", (event) => {
+  clearCreatorFieldError(event.target);
+  event.target?.closest(".creator-social-row")?.classList.remove("creator-field-error");
+  creatorFormMessage?.classList.remove("is-error");
+});
 
 function getCreatorFormData() {
   const formData = new FormData(creatorTitleForm);
