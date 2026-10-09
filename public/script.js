@@ -1263,7 +1263,7 @@ signInForm?.addEventListener("submit", async (event) => {
 
   const formData = new FormData(signInForm);
   const email = String(formData.get("email") || "").trim();
-  const password = String(formData.get("password") || "").trim();
+  const password = String(formData.get("password") || "");
   const termsAccepted = formData.get("terms") === "on";
 
   if (!termsAccepted) {
@@ -1305,6 +1305,18 @@ signInForm?.addEventListener("submit", async (event) => {
   }
 });
 
+async function endServerSession() {
+  const response = await fetch("/api/auth/sign-out", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+
+  if (!response.ok) {
+    throw new Error("Your session could not be signed out.");
+  }
+}
+
 signupForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -1319,6 +1331,15 @@ signupForm?.addEventListener("submit", async (event) => {
   const password = String(formData.get("password") || "");
 
   try {
+    // A failed or interrupted logout must never leave the previous account's
+    // cookie attached while a visitor creates a different account.
+    if (currentAccount?.authenticated) {
+      await endServerSession();
+      currentAccount = null;
+      accountStateResolved = true;
+      updateUserState();
+    }
+
     const response = await fetch("/api/auth/sign-up/email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1355,11 +1376,17 @@ signupForm?.addEventListener("submit", async (event) => {
 });
 
 logoutButton?.addEventListener("click", async () => {
+  logoutButton.disabled = true;
+
   try {
-    await fetch("/api/auth/sign-out", { method: "POST" });
-  } catch {
-    // The local display is still cleared if the server is unavailable.
+    await endServerSession();
+  } catch (error) {
+    logoutButton.disabled = false;
+    logoutButton.textContent = "Sign out failed — retry";
+    logoutButton.title = error.message;
+    return;
   }
+
   currentAccount = null;
   accountStateResolved = true;
   userMenu?.classList.remove("is-open");
